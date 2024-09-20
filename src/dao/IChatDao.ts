@@ -3,14 +3,14 @@ import { Chat, ChatDTO } from "../entities/Chat";
 export interface IChatDao {
   transaction?: FirebaseFirestore.Transaction;
 
-  get(id: string, filter?: { ownerId: string }): Promise<Chat | null>;
+  get(id: string, filter?: { adminId: string }): Promise<Chat | null>;
 
   /**
    *
    * TODO: apply pagination
-   * @param ownerId
+   * @param adminId
    */
-  getAllByOwner(ownerId: string): Promise<Chat[]>;
+  getAllByAdmin(adminId: string): Promise<Chat[]>;
 
   create(group: ChatDTO): Promise<Chat>;
 

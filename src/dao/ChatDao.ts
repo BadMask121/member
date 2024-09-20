@@ -19,7 +19,7 @@ export class ChatDao implements IChatDao {
     throw new Error("Method not implemented.");
   }
 
-  async get(id: string, filter?: { ownerId: string }): Promise<Chat | null> {
+  async get(id: string, filter?: { adminId: string }): Promise<Chat | null> {
     try {
       const docRef = this.db.collection(this.tableName).doc(id);
       let chatSnap: FirebaseFirestore.DocumentSnapshot<
@@ -38,8 +38,8 @@ export class ChatDao implements IChatDao {
         return null;
       }
 
-      if (filter?.ownerId) {
-        if (chat.ownerId !== filter.ownerId) {
+      if (filter?.adminId) {
+        if (chat.adminId !== filter.adminId) {
           return null;
         }
       }
@@ -60,11 +60,11 @@ export class ChatDao implements IChatDao {
   }
 
   // TODO: apply pagination
-  async getAllByOwner(ownerId: string): Promise<Chat[]> {
+  async getAllByAdmin(adminId: string): Promise<Chat[]> {
     try {
       const docRef = this.db
         .collection(this.tableName)
-        .where("ownerId", "==", ownerId)
+        .where("adminId", "==", adminId)
         .orderBy("createdAt", "desc");
 
       let chatSnap: FirebaseFirestore.QuerySnapshot<
@@ -96,7 +96,7 @@ export class ChatDao implements IChatDao {
       throw new DaoError({
         name: "ChatDao",
         message: "Unable to retrieve chats",
-        ownerId,
+        adminId,
         error,
       });
     }
@@ -150,9 +150,11 @@ export class ChatDao implements IChatDao {
   async softDelete(id: string): Promise<void> {
     try {
       const data = (await this.db.collection(this.tableName).where("id", "==", id).get()).docs[0];
-      await this.db.collection(this.tableName).doc(data.id).update({
-        isDeleted: false,
-      });
+      if (data) {
+        await this.db.collection(this.tableName).doc(data.id).update({
+          isDeleted: false,
+        });
+      }
     } catch (error) {
       throw new DaoError({
         name: "ChatDao",

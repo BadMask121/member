@@ -3,11 +3,16 @@ import { IGroupEvent } from "./IGroupChatEvent";
 import { IChatDao } from "../dao/IChatDao";
 import { ChatDTO } from "../entities/Chat";
 import _get from "lodash.get";
+import { PubSub } from "@google-cloud/pubsub";
+import { QueueTopic } from "../entities/Queue";
+import { EventError } from "../errors/event";
+import { GroupChat } from "../entities/GroupChat";
 
 export default class GroupChatEvent implements IGroupEvent {
   constructor(
     readonly client: Client,
-    readonly dao: IChatDao
+    readonly dao: IChatDao,
+    readonly queue: PubSub
   ) {}
 
   /**
@@ -30,35 +35,92 @@ export default class GroupChatEvent implements IGroupEvent {
     recipientIds: [ '2348106577963@c.us' ]
   }
     Task
+    - Check if author is admin
     - Save chat to db
     - send message to queue to trigger initialization cloud function
    */
   async join(notification: WAWebJS.GroupNotification): Promise<void> {
-    const registerBotId = this.client?.info?.wid?.user;
-    const botId = _get(notification.id, "participant");
+    await this.client.sendMessage(notification.chatId, "Member is initializing...");
+    try {
+      if (!notification) {
+        throw new EventError({
+          name: "GroupChatEvent",
+          message: "Invalid notification data",
+        });
+      }
 
-    // check if invited user is our bot
-    if (botId === registerBotId) {
-      const chat: ChatDTO = {
+      const registeredBotId = this.client?.info?.wid?._serialized;
+      const botId = _get(notification.id, "participant");
+      const chat = (await notification.getChat()) as GroupChat;
+      const adminId = notification.author;
+      const adminInfo = chat.groupMetadata.participants.find(
+        (part) => part?.id?._serialized === adminId
+      );
+
+      if (!botId) {
+        throw new EventError({
+          name: "GroupChatEvent",
+          message: "Bot id must be valid",
+        });
+      }
+
+      if (!chat.isGroup) {
+        throw new EventError({
+          name: "GroupChatEvent",
+          message: "Chat must be a group chat",
+        });
+      }
+
+      const chatDto: ChatDTO = {
         botId,
         id: notification.chatId,
-        ownerId: notification.author,
+        adminId,
         isGroup: true,
         isDeleted: false,
         members: notification.recipientIds,
-        createdAt: new Date(notification.timestamp).toDateString(),
+        createdAt: new Date(notification.timestamp).toString(),
       };
 
-      await this.dao.create(chat);
+      // check if invited user is our bot user and user who invited the bot is an admin
+      // Only admin should be able to invite bot
+      if (botId === registeredBotId) {
+        if (adminInfo?.isAdmin || adminInfo?.isSuperAdmin) {
+          await this.dao.create(chatDto);
+        } else {
+          throw new EventError({
+            name: "GroupChatEvent",
+            message: "Only admin user can invite bot",
+          });
+        }
+      } else {
+        // TODO: add group members into members db
+        throw new EventError({
+          name: "GroupChatEvent",
+          message: "Only valid bot can be invited",
+        });
+      }
+
+      const [topic] = await this.queue.createTopic(QueueTopic.INIT_CHAT);
+      // Send a message to the topic
+      topic.publishMessage({ data: Buffer.from(JSON.stringify(chatDto)) });
+
+      // // Creates a subscription on that new topic
+      // const [subscription] = await topic.createSubscription(QueueTopic.INIT_CHAT);
+
+      // // Receive callbacks for new messages on the subscription
+      // subscription.on("message", (message) => {
+      //   console.log("Received message:", message.data.toString());
+      //   process.exit(0);
+      // });
+
+      // // Receive callbacks for errors on the subscription
+      // subscription.on("error", (error) => {
+      //   console.error("Received error:", error);
+      //   process.exit(1);
+      // });
+    } catch (error) {
+      await this.client.sendMessage(notification.chatId, "Member is failed to initialize");
     }
-
-    console.log("Member bot added to group", {
-      receip: notification.getRecipients(),
-      contact: notification.getContact(),
-      notification,
-    });
-
-    // TODO: send message to start initialization of chat
   }
 
   /**
