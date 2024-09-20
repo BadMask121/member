@@ -1,0 +1,57 @@
+# TODO: We can improve this to fully automate the resource creation like Redis
+substitutions:
+  _RUNTIME: nodejs18
+  _SERVICE_NAME: tappz
+  _REGION: us-central1
+  _ENTRY_POINT: noteApp
+  _SECRET_PROJECT_ID: "49074897583"
+  _REDIS_INSTANCE_ID: tappz-redis
+  _REDIS_LOCATION: us-central1
+  _REDIS_CONNECTOR: redis-vpc-connector
+
+steps:
+  # Build and push Cloud Run service
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/tappz:latest', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/tappz:latest']
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME}-ws'
+      - '--image=gcr.io/$PROJECT_ID/tappz:latest'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--set-env-vars=NODE_ENV=production,PROJECT_ID=$PROJECT_ID,SECRET_PROJECT_ID=${_SECRET_PROJECT_ID},REDIS_INSTANCE_ID=${_REDIS_INSTANCE_ID},REDIS_LOCATION=${_REDIS_LOCATION}'
+      - '--allow-unauthenticated'
+      - '--vpc-connector=${_REDIS_CONNECTOR}'
+
+  # Install dependencies and build for Cloud Function
+  - name: 'gcr.io/cloud-builders/npm'
+    args: ['install']
+  - name: 'gcr.io/cloud-builders/npm'
+    args: ['run', 'build']
+
+  # Deploy Cloud Function
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'functions'
+      - 'deploy'
+      - '${_SERVICE_NAME}-api'
+      - '--gen2'
+      - '--runtime=${_RUNTIME}'
+      - '--trigger-http'
+      - '--allow-unauthenticated'
+      - '--region=${_REGION}'
+      - '--entry-point=${_ENTRY_POINT}'
+      - '--set-env-vars=NODE_ENV=production,PROJECT_ID=$PROJECT_ID,SECRET_PROJECT_ID=${_SECRET_PROJECT_ID},REDIS_INSTANCE_ID=${_REDIS_INSTANCE_ID},REDIS_LOCATION=${_REDIS_LOCATION}'
+      - '--memory=1Gb'
+      - '--vpc-connector=${_REDIS_CONNECTOR}'
+      
+images:
+  - 'gcr.io/$PROJECT_ID/tappz:latest'

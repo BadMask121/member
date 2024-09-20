@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+*.pem
+!mock-cert.pem
+.env
+coverage
+./lib
+.eslintcache
+.DS_Store
+tsconfig.prod.tsbuildinfo
+tsconfig.tsbuildinfo
+dist
+terraform.tfvars
+.terraform
+terraform.tfstate.backup
+automerge-repo-data
+tsup.config.bundled*

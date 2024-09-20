@@ -1,0 +1,50 @@
+// {
+//   "compilerOptions": {
+//     "allowJs": false,
+//     "lib": ["esnext"],
+//     "module": "ESNext",
+//     "moduleResolution": "node",
+//     "target": "ESNext",
+//     "noImplicitReturns": false,
+//     "noFallthroughCasesInSwitch": true,
+//     "noUnusedLocals": true,
+//     "pretty": true,
+//     "strict": true,
+//     "sourceMap": true,
+//     "inlineSources": true,
+//     "rootDir": "./src",
+//     "outDir": "./dist",
+//     "skipLibCheck": true,
+//     "noImplicitAny": false,
+//     "esModuleInterop": true,
+//     "declaration": true,
+//     "resolveJsonModule": true
+//   },
+//   "include": ["./src/**/*"],
+//   "exclude": ["node_modules", "**/*.test.ts"],
+//   "compileOnSave": false
+// }
+
+{
+  "compilerOptions": {
+    "incremental": true,
+    "target": "ESNext",
+    "lib": ["esnext"],
+    "module": "ESNext",
+    "outDir": "lib",
+    "rootDir": "./src",
+    "strict": true,
+    "moduleResolution": "node",
+    "types": ["jest", "node"],
+    "esModuleInterop": true, // Enables compatibility between CommonJS and ES modules
+    "allowSyntheticDefaultImports": true, // Allows default imports from modules with no default export
+    "inlineSourceMap": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "experimentalDecorators": true
+  },
+  "include": [
+    "src/**/*" // Adjust according to your project structure
+, "src/events/.ts"  ],
+  "exclude": ["node_modules"]
+}
