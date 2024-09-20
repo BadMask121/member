@@ -32,3 +32,5 @@ npm-debug.log
 coverage
 .eslintcache
 .DS_Store
+.wwebjs_auth
+.wwebjs_cache
