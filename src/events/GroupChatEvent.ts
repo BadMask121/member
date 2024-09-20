@@ -34,7 +34,7 @@ export default class GroupChatEvent implements IGroupEvent {
     - send message to queue to trigger initialization cloud function
    */
   async join(notification: WAWebJS.GroupNotification): Promise<void> {
-    const registerBotId = this.client.info.wid.user;
+    const registerBotId = this.client?.info?.wid?.user;
     const botId = _get(notification.id, "participant");
 
     // check if invited user is our bot
@@ -49,7 +49,7 @@ export default class GroupChatEvent implements IGroupEvent {
         createdAt: new Date(notification.timestamp).toDateString(),
       };
 
-      this.dao.create(chat);
+      await this.dao.create(chat);
     }
 
     console.log("Member bot added to group", {
@@ -70,9 +70,10 @@ export default class GroupChatEvent implements IGroupEvent {
       receip: notification.getRecipients(),
       contact: notification.getContact(),
       notification,
+      this: this,
     });
 
     // delete group from db, this means bot is not longer in the group
-    this.dao.softDelete(notification.chatId);
+    await this.dao.softDelete(notification.chatId);
   }
 }

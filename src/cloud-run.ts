@@ -23,6 +23,6 @@ const chatDao = new ChatDao(firestore, DaoTable.Chat);
 const messageEvent = new MessageEvent(whatsApp.client);
 const groupChatEvent = new GroupChatEvent(whatsApp.client, chatDao);
 
-whatsApp.client.on("message", messageEvent.resolve);
-whatsApp.client.on("group_join", groupChatEvent.join);
-whatsApp.client.on("group_leave", groupChatEvent.leave);
+whatsApp.client.on("message", (msg) => messageEvent.resolve(msg));
+whatsApp.client.on("group_join", (notification) => groupChatEvent.join(notification));
+whatsApp.client.on("group_leave", (notification) => groupChatEvent.leave(notification));

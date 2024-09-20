@@ -15,11 +15,13 @@ export default class WhatsappWebClient {
    */
   public async init(): Promise<void> {
     console.log("init");
-    await mongoose.connect(String(process.env.MONGODB_URI));
+    // TODO: uncomment on prod
+    // await mongoose.connect(String(process.env.MONGODB_URI)).catch((err) => console.log(err));
 
     console.log("initializing");
 
-    const store = new MongoStore({ mongoose });
+    // TODO: uncomment on prod
+    // const store = new MongoStore({ mongoose });
     const client = new Client({
       puppeteer: {
         headless: true,
