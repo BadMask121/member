@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 import qrTerminal from "qrcode-terminal";
-import qrcode from "qrcode";
 import WhatsAppWeb, { Client } from "whatsapp-web.js";
 
 import { MongoStore } from "wwebjs-mongo";
-import { isProd } from "../lib/env";
 import { BotClient } from "../entities/BotClient";
+import { isProd } from "../lib/env";
+import { sendQRCodeEmail } from "../lib/sendQrCodeEmail";
 
 const { RemoteAuth } = WhatsAppWeb;
 
@@ -87,8 +87,9 @@ export default class WhatsappWebClient {
      */
     client.once("qr", async (qr) => {
       if (isProd) {
-        // TODO: send image to bot client admin email for scanning
-        let img = await qrcode.toDataURL(qr);
+        // send image to bot client admin email for scanning
+        this.logger("Sending message to admin for authentication...");
+        await sendQRCodeEmail(qr, this.botClient.email);
       } else {
         qrTerminal.generate(qr, { small: true });
       }

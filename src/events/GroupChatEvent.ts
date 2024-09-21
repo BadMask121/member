@@ -49,18 +49,23 @@ export default class GroupChatEvent implements IGroupEvent {
    */
   async join(notification: WAWebJS.GroupNotification): Promise<void> {
     await this.client.sendMessage(notification.chatId, "Member is initializing...");
+
+    const botId = String(_get(notification.id, "participant"));
+    const botPhone = getPhoneFromBotId(botId);
+    const botClient = await this.botClientDao.getByPhone(String(botPhone));
+    const adminEmail = botClient?.email;
+
     try {
       if (!notification) {
         throw new EventError({
+          botId,
+          adminEmail,
           name: "GroupChatEvent",
           message: "Invalid notification data",
         });
       }
 
       const registeredBotId = this.client?.info?.wid?._serialized;
-      const botId = String(_get(notification.id, "participant"));
-      const botPhone = getPhoneFromBotId(botId);
-
       const chat = (await notification.getChat()) as GroupChat;
       const adminId = notification.author;
       const adminInfo = chat.groupMetadata.participants.find(
@@ -70,6 +75,8 @@ export default class GroupChatEvent implements IGroupEvent {
 
       if (!botId) {
         throw new EventError({
+          botId,
+          adminEmail,
           name: "GroupChatEvent",
           message: "Bot id must be valid",
         });
@@ -77,6 +84,8 @@ export default class GroupChatEvent implements IGroupEvent {
 
       if (!chat.isGroup) {
         throw new EventError({
+          botId,
+          adminEmail,
           name: "GroupChatEvent",
           message: "Chat must be a group chat",
         });
@@ -84,6 +93,8 @@ export default class GroupChatEvent implements IGroupEvent {
       // check if invited user is our bot user and user who invited the bot is an admin
       if (botId !== registeredBotId) {
         throw new EventError({
+          botId,
+          adminEmail,
           name: "GroupChatEvent",
           message: "Only valid bot can be invited",
         });
@@ -92,23 +103,28 @@ export default class GroupChatEvent implements IGroupEvent {
       // Only admin should be able to invite bot
       if (!adminInfo?.isAdmin || !adminInfo?.isSuperAdmin) {
         throw new EventError({
+          botId,
+          adminEmail,
           name: "GroupChatEvent",
           message: "Only admin user can invite bot",
         });
       }
 
-      const botClient = await this.botClientDao.getByPhone(String(botPhone));
-
       if (!botClient) {
         throw new EventError({
+          botId,
+          adminEmail,
           name: "GroupChatEvent",
           message: "Invalid bot info",
         });
       }
 
+      console.log({ botClient, adminNumber });
       // Check if bot number belong to admin
       if (botClient.adminPhone !== adminNumber) {
         throw new EventError({
+          botId,
+          adminEmail,
           name: "GroupChatEvent",
           message: "Bot was not initiated by the right admin",
         });
@@ -117,6 +133,8 @@ export default class GroupChatEvent implements IGroupEvent {
       // limit how many group chat bot can be invited to
       if (botClient.inviteCount >= 1) {
         throw new EventError({
+          botId,
+          adminEmail,
           name: "GroupChatEvent",
           message: "Bot has already been invited to a group chat",
         });

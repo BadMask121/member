@@ -1,7 +1,13 @@
 import { logger } from "../lib/logger";
 
 interface EventOptions {
+  botId: string;
+  adminEmail: string;
   name: string;
+  /**
+   * if @param pushError is enabled, email with the error message will be set to group chat admin
+   */
+  pushError?: boolean;
   message?: string;
   [key: string]: unknown;
 }

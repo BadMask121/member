@@ -29,8 +29,8 @@ export default async function InitializeBot(req: RequestPayload): Promise<Reques
     });
 
     await saveMessages(chatDto, messages);
-
     await client.sendMessage(chatDto.id, "Member initialization complete");
+
     return req;
   } catch (error) {
     // send failure to whatsapp
