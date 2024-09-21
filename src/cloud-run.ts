@@ -1,37 +1,23 @@
 import "dotenv/config";
+import { BotClient } from "./entities/BotClient";
+import { closeBotWebClient, createBotWebClient } from "./lib/botClient";
+import { botClientDao } from "./lib/dependencies";
 
-import MessageEvent from "./events/MessageEvent";
-import WhatsappWebClient from "./services/WhatsappWebClient";
-import GroupChatEvent from "./events/GroupChatEvent";
-import { ChatDao } from "./dao/ChatDao";
-import { Firestore } from "@google-cloud/firestore";
-import { PubSub } from "@google-cloud/pubsub";
-import { DaoTable } from "./dao/IDao";
+/**
+ * get all bot user from db and subscribe to their number as client
+ */
 
-let firestore!: Firestore;
-let pubSub!: PubSub;
-let whatsApp!: WhatsappWebClient;
+const botClients = await botClientDao.getAll();
 
-if (!firestore) {
-  firestore = new Firestore();
-}
+// initate whatsapp web instance for each client
+botClients.forEach(createBotWebClient);
 
-if (!pubSub) {
-  pubSub = new PubSub();
-}
+// listen to when new client is added then initiate whatsapp web instance
+botClientDao.on("added", async <T = BotClient>(data: T) => {
+  await createBotWebClient(data as BotClient);
+});
 
-if (!whatsApp) {
-  whatsApp = new WhatsappWebClient();
-  await whatsApp.init();
-}
-
-// Dao dependencies
-const chatDao = new ChatDao(firestore, DaoTable.Chat);
-
-// Event dependencies
-const messageEvent = new MessageEvent(whatsApp.client);
-const groupChatEvent = new GroupChatEvent(whatsApp.client, chatDao, pubSub);
-
-whatsApp.client.on("message", (msg) => messageEvent.resolve(msg));
-whatsApp.client.on("group_join", (notification) => groupChatEvent.join(notification));
-whatsApp.client.on("group_leave", (notification) => groupChatEvent.leave(notification));
+// when a bot client is removed destroy the whatsapp web instance
+botClientDao.on("removed", async <T = BotClient>(data: T) => {
+  await closeBotWebClient(data as BotClient);
+});

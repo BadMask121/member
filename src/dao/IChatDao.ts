@@ -12,7 +12,7 @@ export interface IChatDao {
    */
   getAllByAdmin(adminId: string): Promise<Chat[]>;
 
-  create(group: ChatDTO): Promise<Chat>;
+  save(chat: Partial<ChatDTO>, id?: string): Promise<Partial<Chat>>;
 
   removeMember(memberId: string): Promise<boolean>;
 

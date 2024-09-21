@@ -40,3 +40,13 @@ In other to run redis properly you need to create a vpc connector with id `redis
 
 `OPENAI_KEY` should be stored in Secret Manager
 make sure to check `cloudbuild.yaml` for neccessary changes of credentials
+
+
+## TODO
+
+[x] Implement inviting bot to group logic
+[ ] Implement storing of messages to db and vector db for initializer
+[ ] Implement storing of messages to db and vector db for new messages
+[ ] Implement message command handlers
+[ ] Implement message parser for AI commands
+[ ] Implement authentication and session refresh

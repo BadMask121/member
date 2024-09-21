@@ -1,28 +1,32 @@
 import mongoose from "mongoose";
-import qrcode from "qrcode-terminal";
+import qrTerminal from "qrcode-terminal";
+import qrcode from "qrcode";
 import WhatsAppWeb, { Client } from "whatsapp-web.js";
 
 import { MongoStore } from "wwebjs-mongo";
+import { isProd } from "../lib/env";
+import { BotClient } from "../entities/BotClient";
 
-const { RemoteAuth, LocalAuth } = WhatsAppWeb;
+const { RemoteAuth } = WhatsAppWeb;
 
 export default class WhatsappWebClient {
   public client!: Client;
+
+  constructor(readonly botClient: BotClient) {}
 
   /**
    * Starts the process of whatsapp client integration
    * MUST BE CALLED FIRST
    */
   public async init(): Promise<void> {
-    console.log("init");
-    // TODO: uncomment on prod
-    // await mongoose.connect(String(process.env.MONGODB_URI)).catch((err) => console.log(err));
+    await mongoose.connect(String(process.env.MONGODB_URI)).catch((err) => this.logger(err));
 
-    console.log("initializing");
+    const store = new MongoStore({ mongoose });
+    const { phone: botPhoneNumber, email } = this.botClient;
 
-    // TODO: uncomment on prod
-    // const store = new MongoStore({ mongoose });
-    const client = new Client({
+    this.logger(`Initializing for bot client: ${botPhoneNumber}`);
+
+    const options: WhatsAppWeb.ClientOptions = {
       puppeteer: {
         headless: true,
         args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"],
@@ -31,51 +35,84 @@ export default class WhatsappWebClient {
           height: 600,
         },
       },
-      // uncomment on prod
-      // authStrategy: new RemoteAuth({
-      //   store,
-      //   backupSyncIntervalMs: 1000 * 60,
-      // }),
-      // authStrategy: new LocalAuth(),
-    });
+    };
+
+    if (isProd) {
+      options.authStrategy = new RemoteAuth({
+        clientId: botPhoneNumber,
+        store,
+        backupSyncIntervalMs: 1000 * 60,
+      });
+    }
+
+    const client = new Client(options);
 
     client.initialize();
 
-    // if (!this.client) {
-    this.client = client;
-    // }
+    if (!this.client) {
+      this.client = client;
+    }
 
-    console.log("initialization complete, retriving Qr code for scanning...");
+    this.logger(`initialization complete for ${botPhoneNumber}, retriving Qr code for scanning...`);
 
     client.on("loading_screen", (percent, message) => {
-      console.log("LOADING SCREEN", percent, message);
+      this.logger("LOADING SCREEN", { percent, message });
     });
 
     client.on("authenticated", () => {
-      console.log("AUTHENTICATED");
+      this.logger("AUTHENTICATED");
     });
 
     client.on("auth_failure", (msg) => {
       // Fired if session restore was unsuccessful
-      console.error("AUTHENTICATION FAILURE", msg);
+      this.logger("AUTHENTICATION FAILURE", { msg });
     });
 
     client.on("ready", async () => {
-      console.log("READY");
+      this.logger("READY");
       const debugWWebVersion = await client.getWWebVersion();
-      console.log(`WWebVersion = ${debugWWebVersion}`);
+      this.logger(`WWebVersion = ${debugWWebVersion}`);
 
       client!.pupPage?.on("pageerror", (err) => {
-        console.log(`Page error: ${err.toString()}`);
+        this.logger(`Page error: ${err.toString()}`);
       });
       client.pupPage?.on("error", (err) => {
-        console.log(`Page error: ${err.toString()}`);
+        this.logger(`Page error: ${err.toString()}`);
       });
     });
 
-    // When the client received QR-Code
-    client.on("qr", (qr) => {
-      qrcode.generate(qr, { small: true });
+    /**
+     * When the client received QR-Code
+     * send qr code image to bot client email for them to scan
+     */
+    client.once("qr", async (qr) => {
+      if (isProd) {
+        // TODO: send image to bot client admin email for scanning
+        let img = await qrcode.toDataURL(qr);
+      } else {
+        qrTerminal.generate(qr, { small: true });
+      }
     });
+
+    // Enable graceful stop
+    process.once("SIGINT", async () => {
+      if (this.client) {
+        await this.destroy();
+      }
+    });
+
+    process.once("SIGTERM", async () => {
+      if (this.client) {
+        await this.destroy();
+      }
+    });
+  }
+
+  private logger(message: string, options?: Record<string, unknown>): void {
+    console.log(`[${this.botClient?.phone || `System`}]: ${message}`, options);
+  }
+
+  async destroy(): Promise<void> {
+    await this.client.destroy();
   }
 }

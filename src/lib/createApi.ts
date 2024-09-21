@@ -15,7 +15,7 @@ export function createCallApiV2<R, U>(
   options?: functions2.https.CallableOptions
 ): functions2.https.CallableFunction<R, U extends Promise<unknown> ? U : Promise<U>> {
   return functions2.https.onCall(
-    { timeoutSeconds: 300, memory: "512MiB", enforceAppCheck: true, ...options },
+    { timeoutSeconds: 300, memory: "512MiB", enforceAppCheck: false, ...options },
     handler
   );
 }

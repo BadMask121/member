@@ -1,17 +1,22 @@
+import { PubSub } from "@google-cloud/pubsub";
+import { encode } from "cbor-x";
+import _get from "lodash.get";
 import WAWebJS, { Client } from "whatsapp-web.js";
-import { IGroupEvent } from "./IGroupChatEvent";
 import { IChatDao } from "../dao/IChatDao";
 import { ChatDTO } from "../entities/Chat";
-import _get from "lodash.get";
-import { PubSub } from "@google-cloud/pubsub";
+import { GroupChat } from "../entities/GroupChat";
 import { QueueTopic } from "../entities/Queue";
 import { EventError } from "../errors/event";
-import { GroupChat } from "../entities/GroupChat";
+import { IGroupEvent } from "./IGroupChatEvent";
+import { IBotClientDao } from "../dao/IBotClientDao";
+import { getPhoneFromBotId } from "../lib/botClient";
+import { firestore } from "../lib/dependencies";
 
 export default class GroupChatEvent implements IGroupEvent {
   constructor(
     readonly client: Client,
-    readonly dao: IChatDao,
+    readonly chatDao: IChatDao,
+    readonly botClientDao: IBotClientDao,
     readonly queue: PubSub
   ) {}
 
@@ -36,7 +41,10 @@ export default class GroupChatEvent implements IGroupEvent {
   }
     Task
     - Check if author is admin
+    - Check if bot number belong to admin author
+    - Check if invite count more than 1 (This means phone number has already been added to a group)
     - Save chat to db
+    - increate bot client invite count by 1
     - send message to queue to trigger initialization cloud function
    */
   async join(notification: WAWebJS.GroupNotification): Promise<void> {
@@ -50,12 +58,15 @@ export default class GroupChatEvent implements IGroupEvent {
       }
 
       const registeredBotId = this.client?.info?.wid?._serialized;
-      const botId = _get(notification.id, "participant");
+      const botId = String(_get(notification.id, "participant"));
+      const botPhone = getPhoneFromBotId(botId);
+
       const chat = (await notification.getChat()) as GroupChat;
       const adminId = notification.author;
       const adminInfo = chat.groupMetadata.participants.find(
         (part) => part?.id?._serialized === adminId
       );
+      const adminNumber = adminInfo?.id.user;
 
       if (!botId) {
         throw new EventError({
@@ -70,6 +81,46 @@ export default class GroupChatEvent implements IGroupEvent {
           message: "Chat must be a group chat",
         });
       }
+      // check if invited user is our bot user and user who invited the bot is an admin
+      if (botId !== registeredBotId) {
+        throw new EventError({
+          name: "GroupChatEvent",
+          message: "Only valid bot can be invited",
+        });
+      }
+
+      // Only admin should be able to invite bot
+      if (!adminInfo?.isAdmin || !adminInfo?.isSuperAdmin) {
+        throw new EventError({
+          name: "GroupChatEvent",
+          message: "Only admin user can invite bot",
+        });
+      }
+
+      const botClient = await this.botClientDao.getByPhone(String(botPhone));
+
+      if (!botClient) {
+        throw new EventError({
+          name: "GroupChatEvent",
+          message: "Invalid bot info",
+        });
+      }
+
+      // Check if bot number belong to admin
+      if (botClient.adminPhone !== adminNumber) {
+        throw new EventError({
+          name: "GroupChatEvent",
+          message: "Bot was not initiated by the right admin",
+        });
+      }
+
+      // limit how many group chat bot can be invited to
+      if (botClient.inviteCount >= 1) {
+        throw new EventError({
+          name: "GroupChatEvent",
+          message: "Bot has already been invited to a group chat",
+        });
+      }
 
       const chatDto: ChatDTO = {
         botId,
@@ -78,31 +129,25 @@ export default class GroupChatEvent implements IGroupEvent {
         isGroup: true,
         isDeleted: false,
         members: notification.recipientIds,
-        createdAt: new Date(notification.timestamp).toString(),
+        createdAt: +new Date(notification.timestamp),
       };
 
-      // check if invited user is our bot user and user who invited the bot is an admin
-      // Only admin should be able to invite bot
-      if (botId === registeredBotId) {
-        if (adminInfo?.isAdmin || adminInfo?.isSuperAdmin) {
-          await this.dao.create(chatDto);
-        } else {
-          throw new EventError({
-            name: "GroupChatEvent",
-            message: "Only admin user can invite bot",
-          });
-        }
-      } else {
-        // TODO: add group members into members db
-        throw new EventError({
-          name: "GroupChatEvent",
-          message: "Only valid bot can be invited",
-        });
-      }
+      await firestore.runTransaction(async (tx) => {
+        this.chatDao.transaction = tx;
+        this.botClientDao.transaction = tx;
+
+        // TODO: add group members into members object array
+        await this.chatDao.save(chatDto);
+
+        // increase invite count
+        await this.botClientDao.save({ inviteCount: botClient.inviteCount + 1 }, botClient.id);
+      });
 
       const [topic] = await this.queue.createTopic(QueueTopic.INIT_CHAT);
+
       // Send a message to the topic
-      topic.publishMessage({ data: Buffer.from(JSON.stringify(chatDto)) });
+      // over the network encoding with cbor algorigthm
+      await topic.publishMessage({ data: encode(chatDto) });
 
       // // Creates a subscription on that new topic
       // const [subscription] = await topic.createSubscription(QueueTopic.INIT_CHAT);
@@ -119,12 +164,17 @@ export default class GroupChatEvent implements IGroupEvent {
       //   process.exit(1);
       // });
     } catch (error) {
+      console.log(error);
       await this.client.sendMessage(notification.chatId, "Member is failed to initialize");
     }
   }
 
   /**
    * when user leave group remove the receipient information from db
+   *
+   * Task
+   * - Soft delete chat dao
+   * - Decrease bot client inviteCount by 1
    * @param notification
    */
   async leave(notification: WAWebJS.GroupNotification): Promise<void> {
@@ -136,6 +186,6 @@ export default class GroupChatEvent implements IGroupEvent {
     });
 
     // delete group from db, this means bot is not longer in the group
-    await this.dao.softDelete(notification.chatId);
+    await this.chatDao.softDelete(notification.chatId);
   }
 }

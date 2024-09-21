@@ -1,6 +1,6 @@
-import DeleteNote from "./handlers/delete-note";
+import InitializeBot from "./handlers/initialize-bot";
 import { createCallApiV2 } from "./lib/createApi";
 
-export const deleteNote = createCallApiV2(DeleteNote, {
+export const initializeBot = createCallApiV2(InitializeBot, {
   timeoutSeconds: 520,
 });
