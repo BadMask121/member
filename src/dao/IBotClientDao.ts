@@ -8,7 +8,9 @@ export interface IBotClientDao {
 
   getAll(): Promise<BotClient[]>;
 
-  save(botClientDto: Partial<BotClientDTO>, id?: string): Promise<Partial<BotClient>>;
+  save(botClientDto: Partial<BotClientDTO>): Promise<Partial<BotClient>>;
+
+  update(id: string, botClientDto: Partial<BotClientDTO>): Promise<Partial<BotClient>>;
 
   delete(id: string): Promise<void>;
 

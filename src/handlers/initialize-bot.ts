@@ -12,12 +12,11 @@ interface RequestPayload {
  * @param req
  * @returns
  */
-export default async function InitializeBot(req: RequestPayload): Promise<RequestPayload> {
+export default async function InitializeBot(req: RequestPayload): Promise<void> {
   const { data } = req;
   const chatDto = decode(data) as ChatDTO;
   const phone = getPhoneFromBotId(chatDto.botId);
   const client = await getBotClient(String(phone));
-
   try {
     if (!client) {
       throw new Error("No client found");
@@ -30,11 +29,9 @@ export default async function InitializeBot(req: RequestPayload): Promise<Reques
 
     await saveMessages(chatDto, messages);
     await client.sendMessage(chatDto.id, "Member initialization complete");
-
-    return req;
   } catch (error) {
+    console.log(error);
     // send failure to whatsapp
     await client?.sendMessage(chatDto.id, "Member failed to initialize");
-    throw new Error("Unable to initialise bot");
   }
 }

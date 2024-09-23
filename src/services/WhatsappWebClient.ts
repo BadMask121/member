@@ -1,11 +1,11 @@
-import mongoose from "mongoose";
 import qrTerminal from "qrcode-terminal";
 import WhatsAppWeb, { Client } from "whatsapp-web.js";
 
-import { MongoStore } from "wwebjs-mongo";
 import { BotClient } from "../entities/BotClient";
+import { connectedClients } from "../lib/dependencies";
 import { isProd } from "../lib/env";
 import { sendQRCodeEmail } from "../lib/sendQrCodeEmail";
+import { WwebjsCloudStorage } from "./WwebjsCloudStorage";
 
 const { RemoteAuth } = WhatsAppWeb;
 
@@ -19,9 +19,9 @@ export default class WhatsappWebClient {
    * MUST BE CALLED FIRST
    */
   public async init(): Promise<void> {
-    await mongoose.connect(String(process.env.MONGODB_URI)).catch((err) => this.logger(err));
+    // await mongoose.connect(String(process.env.MONGODB_URI)).catch((err) => this.logger(err));
 
-    const store = new MongoStore({ mongoose });
+    // const store = new MongoStore({ mongoose });
     const { phone: botPhoneNumber, email } = this.botClient;
 
     this.logger(`Initializing for bot client: ${botPhoneNumber}`);
@@ -29,7 +29,16 @@ export default class WhatsappWebClient {
     const options: WhatsAppWeb.ClientOptions = {
       puppeteer: {
         headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"],
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-accelerated-2d-canvas",
+          "--no-first-run",
+          "--no-zygote",
+          "--single-process",
+          "--disable-gpu",
+        ],
         defaultViewport: {
           width: 800,
           height: 600,
@@ -37,13 +46,16 @@ export default class WhatsappWebClient {
       },
     };
 
-    if (isProd) {
-      options.authStrategy = new RemoteAuth({
-        clientId: botPhoneNumber,
-        store,
-        backupSyncIntervalMs: 1000 * 60,
-      });
-    }
+    // if (isProd) {
+    options.authStrategy = new RemoteAuth({
+      clientId: botPhoneNumber,
+      store: new WwebjsCloudStorage(botPhoneNumber, "wweb-storage", "member-adea8"),
+      backupSyncIntervalMs: 1000 * 60,
+    });
+    // }
+    // else {
+    //   options.authStrategy = new LocalAuth();
+    // }
 
     const client = new Client(options);
 
@@ -89,23 +101,19 @@ export default class WhatsappWebClient {
       if (isProd) {
         // send image to bot client admin email for scanning
         this.logger("Sending message to admin for authentication...");
-        await sendQRCodeEmail(qr, this.botClient.email);
+        await sendQRCodeEmail(qr, email);
       } else {
         qrTerminal.generate(qr, { small: true });
       }
     });
 
     // Enable graceful stop
-    process.once("SIGINT", async () => {
-      if (this.client) {
-        await this.destroy();
-      }
-    });
-
-    process.once("SIGTERM", async () => {
-      if (this.client) {
-        await this.destroy();
-      }
+    ["SIGINT", "SIGTERM"].forEach((signal) => {
+      process.on(signal, async () => {
+        if (this.client) {
+          await this.destroy();
+        }
+      });
     });
   }
 
@@ -114,6 +122,9 @@ export default class WhatsappWebClient {
   }
 
   async destroy(): Promise<void> {
-    await this.client.destroy();
+    console.log("destroying session...");
+    // remove client from connection
+    connectedClients.delete(this.botClient.phone);
+    // await this.client.destroy();
   }
 }

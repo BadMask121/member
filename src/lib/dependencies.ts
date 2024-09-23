@@ -32,4 +32,6 @@ export const botClientDao = new BotClientDao(firestore, DaoTable.BotClient);
 export const chatDao = new ChatDao(firestore, DaoTable.Chat);
 export const messageDao = new MessageDao(firestore, DaoTable.Message);
 
+export const connectedClients = new Map();
+
 export { firestore, openai, pubSub };

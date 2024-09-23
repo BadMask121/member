@@ -140,8 +140,10 @@ export class ChatDao implements IChatDao {
 
   async delete(id: string): Promise<void> {
     try {
-      const data = (await this.db.collection(this.tableName).where("id", "==", id).get()).docs[0];
-      await this.db.collection(this.tableName).doc(data.id).delete();
+      const data = (await this.db.collection(this.tableName).where("id", "==", id).get()).docs?.[0];
+      if (data) {
+        await this.db.collection(this.tableName).doc(data.id).delete();
+      }
     } catch (error) {
       throw new DaoError({
         name: "ChatDao",
@@ -157,7 +159,7 @@ export class ChatDao implements IChatDao {
       const data = (await this.db.collection(this.tableName).where("id", "==", id).get()).docs[0];
       if (data) {
         await this.db.collection(this.tableName).doc(data.id).update({
-          isDeleted: false,
+          isDeleted: true,
         });
       }
     } catch (error) {

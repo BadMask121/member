@@ -11,6 +11,7 @@ import { IGroupEvent } from "./IGroupChatEvent";
 import { IBotClientDao } from "../dao/IBotClientDao";
 import { getPhoneFromBotId } from "../lib/botClient";
 import { firestore } from "../lib/dependencies";
+import InitializeBot from "../handlers/initialize-bot";
 
 export default class GroupChatEvent implements IGroupEvent {
   constructor(
@@ -49,123 +50,146 @@ export default class GroupChatEvent implements IGroupEvent {
    */
   async join(notification: WAWebJS.GroupNotification): Promise<void> {
     await this.client.sendMessage(notification.chatId, "Member is initializing...");
-
     const botId = String(_get(notification.id, "participant"));
+
+    if (!botId) {
+      throw new EventError({
+        name: "GroupChatEvent",
+        message: "Bot id must be valid",
+      });
+    }
+
     const botPhone = getPhoneFromBotId(botId);
-    const botClient = await this.botClientDao.getByPhone(String(botPhone));
-    const adminEmail = botClient?.email;
 
     try {
-      if (!notification) {
-        throw new EventError({
-          botId,
-          adminEmail,
-          name: "GroupChatEvent",
-          message: "Invalid notification data",
-        });
-      }
-
-      const registeredBotId = this.client?.info?.wid?._serialized;
-      const chat = (await notification.getChat()) as GroupChat;
-      const adminId = notification.author;
-      const adminInfo = chat.groupMetadata.participants.find(
-        (part) => part?.id?._serialized === adminId
-      );
-      const adminNumber = adminInfo?.id.user;
-
-      if (!botId) {
-        throw new EventError({
-          botId,
-          adminEmail,
-          name: "GroupChatEvent",
-          message: "Bot id must be valid",
-        });
-      }
-
-      if (!chat.isGroup) {
-        throw new EventError({
-          botId,
-          adminEmail,
-          name: "GroupChatEvent",
-          message: "Chat must be a group chat",
-        });
-      }
-      // check if invited user is our bot user and user who invited the bot is an admin
-      if (botId !== registeredBotId) {
-        throw new EventError({
-          botId,
-          adminEmail,
-          name: "GroupChatEvent",
-          message: "Only valid bot can be invited",
-        });
-      }
-
-      // Only admin should be able to invite bot
-      if (!adminInfo?.isAdmin || !adminInfo?.isSuperAdmin) {
-        throw new EventError({
-          botId,
-          adminEmail,
-          name: "GroupChatEvent",
-          message: "Only admin user can invite bot",
-        });
-      }
-
-      if (!botClient) {
-        throw new EventError({
-          botId,
-          adminEmail,
-          name: "GroupChatEvent",
-          message: "Invalid bot info",
-        });
-      }
-
-      console.log({ botClient, adminNumber });
-      // Check if bot number belong to admin
-      if (botClient.adminPhone !== adminNumber) {
-        throw new EventError({
-          botId,
-          adminEmail,
-          name: "GroupChatEvent",
-          message: "Bot was not initiated by the right admin",
-        });
-      }
-
-      // limit how many group chat bot can be invited to
-      if (botClient.inviteCount >= 1) {
-        throw new EventError({
-          botId,
-          adminEmail,
-          name: "GroupChatEvent",
-          message: "Bot has already been invited to a group chat",
-        });
-      }
-
-      const chatDto: ChatDTO = {
-        botId,
-        id: notification.chatId,
-        adminId,
-        isGroup: true,
-        isDeleted: false,
-        members: notification.recipientIds,
-        createdAt: +new Date(notification.timestamp),
-      };
-
-      await firestore.runTransaction(async (tx) => {
+      const result = await firestore.runTransaction(async (tx) => {
         this.chatDao.transaction = tx;
         this.botClientDao.transaction = tx;
 
-        // TODO: add group members into members object array
-        await this.chatDao.save(chatDto);
+        const botClient = await this.botClientDao.getByPhone(String(botPhone));
+        const adminEmail = botClient?.email;
 
-        // increase invite count
-        await this.botClientDao.save({ inviteCount: botClient.inviteCount + 1 }, botClient.id);
+        if (!botClient) {
+          throw new EventError({
+            botId,
+            name: "GroupChatEvent",
+            message: "Bot client not connected",
+          });
+        }
+
+        if (!notification) {
+          throw new EventError({
+            botId,
+            adminEmail,
+            name: "GroupChatEvent",
+            message: "Invalid notification data",
+          });
+        }
+
+        const registeredBotId = this.client?.info?.wid?._serialized;
+        const chat = (await notification.getChat()) as GroupChat;
+        const adminId = notification.author;
+        const adminInfo = chat.groupMetadata.participants.find(
+          (part) => part?.id?._serialized === adminId
+        );
+        const adminNumber = adminInfo?.id.user;
+
+        if (!chat.isGroup) {
+          throw new EventError({
+            botId,
+            adminEmail,
+            name: "GroupChatEvent",
+            message: "Chat must be a group chat",
+          });
+        }
+
+        // check if invited user is our bot user and user who invited the bot is an admin
+        if (botId !== registeredBotId) {
+          throw new EventError({
+            botId,
+            adminEmail,
+            name: "GroupChatEvent",
+            message: "Only valid bot can be invited",
+          });
+        }
+
+        // Only admin should be able to invite bot
+        if (!adminInfo?.isAdmin || !adminInfo?.isSuperAdmin) {
+          throw new EventError({
+            botId,
+            adminEmail,
+            name: "GroupChatEvent",
+            message: "Only admin user can invite bot",
+          });
+        }
+
+        if (!botClient) {
+          throw new EventError({
+            botId,
+            adminEmail,
+            name: "GroupChatEvent",
+            message: "Invalid bot info",
+          });
+        }
+
+        // Check if bot number belong to admin
+        if (botClient.adminPhone !== adminNumber) {
+          throw new EventError({
+            botId,
+            adminEmail,
+            name: "GroupChatEvent",
+            message: "Bot was not initiated by the right admin",
+          });
+        }
+
+        // limit how many group chat bot can be invited to
+        if (botClient.inviteCount >= 1) {
+          throw new EventError({
+            botId,
+            adminEmail,
+            name: "GroupChatEvent",
+            message: "Bot has already been invited to a group chat",
+          });
+        }
+
+        const chatDto: ChatDTO = {
+          botId,
+          id: notification.chatId,
+          adminId,
+          isGroup: true,
+          isDeleted: false,
+          members: notification.recipientIds,
+          createdAt: +new Date(notification.timestamp),
+        };
+
+        await Promise.all([
+          // // TODO: add group members into members object array
+          this.chatDao.save(chatDto),
+          // increase invite count
+          this.botClientDao.update(botClient.id, {
+            inviteCount: (botClient.inviteCount || 0) + 1,
+          }),
+        ]);
+
+        return { botClient, chatDto };
       });
 
-      const [topic] = await this.queue.createTopic(QueueTopic.INIT_CHAT);
+      this.botClientDao.transaction = undefined;
+      this.chatDao.transaction = undefined;
+
+      console.log(result, "done");
+
+      // TODO: use for prod
+      // const [topic] = await this.queue.createTopic(QueueTopic.INIT_CHAT);
 
       // Send a message to the topic
       // over the network encoding with cbor algorigthm
-      await topic.publishMessage({ data: encode(chatDto) });
+      const data = encode(result.chatDto);
+      // TODO: use for prod
+      // await topic.publishMessage({ data });
+
+      // TODO: REMOVE for only testing
+      await InitializeBot({ data });
 
       // // Creates a subscription on that new topic
       // const [subscription] = await topic.createSubscription(QueueTopic.INIT_CHAT);
@@ -196,14 +220,40 @@ export default class GroupChatEvent implements IGroupEvent {
    * @param notification
    */
   async leave(notification: WAWebJS.GroupNotification): Promise<void> {
-    console.log("Member bot left group", {
-      receip: notification.getRecipients(),
-      contact: notification.getContact(),
-      notification,
-      this: this,
-    });
+    try {
+      await firestore.runTransaction(async (tx) => {
+        this.chatDao.transaction = tx;
+        this.botClientDao.transaction = tx;
 
-    // delete group from db, this means bot is not longer in the group
-    await this.chatDao.softDelete(notification.chatId);
+        const botId = String(_get(notification.id, "participant"));
+        const botPhone = getPhoneFromBotId(botId);
+        const botClient = await this.botClientDao.getByPhone(String(botPhone));
+
+        if (!botClient) {
+          throw new EventError({
+            botId,
+            name: "GroupChatEvent",
+            message: "Bot client not connected",
+          });
+        }
+
+        await Promise.all([
+          // delete group from db, this means bot is not longer in the group
+          this.chatDao.delete(notification.chatId),
+          // increase invite count
+          this.botClientDao.update(botClient.id, { inviteCount: (botClient.inviteCount || 1) - 1 }),
+        ]);
+
+        console.log("Member bot left group", {
+          notification,
+          botClient,
+        });
+      });
+
+      this.botClientDao.transaction = undefined;
+      this.chatDao.transaction = undefined;
+    } catch (error) {
+      console.log(error);
+    }
   }
 }

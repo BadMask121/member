@@ -25,15 +25,15 @@ export default async function saveMessages(
     throw new Error("No client found");
   }
 
-  const chat = await client.getChatById(chatDto.id);
-
   await firestore.runTransaction(async (transaction) => {
     // initiate transaction
     messageDao.transaction = transaction;
 
     const _messages = messages.map(async (message) => {
-      const author = await client.getContactById(String(message.author));
-      const authorId = author.id._serialized;
+      if (!message.author || message.fromMe) {
+        return;
+      }
+
       const encryptedMessage = Encrypter.encrypt(
         message.body,
         String(process.env.MESSAGE_CRYPTO_KEY)
@@ -41,17 +41,17 @@ export default async function saveMessages(
 
       const payload: MessageDTO = {
         id: message.id._serialized,
-        chatId: chat.id._serialized,
+        chatId: chatDto.id,
         content: encryptedMessage,
         createdAt: +new Date(message.timestamp),
-        sentBy: authorId,
+        sentBy: message.author,
         sentTo: chatDto.botId,
         mentionedIds: message.mentionedIds.map((mention) => mention._serialized),
       };
 
       // TODO: check if message has media then download media and upload to R2
       if (message.hasMedia) {
-        throw Error("Not implemented yet");
+        console.log("image download not implemented");
       }
 
       await messageDao.create(payload);

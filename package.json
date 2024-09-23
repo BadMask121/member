@@ -58,8 +58,9 @@
     "pino-http": "^10.1.0",
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.26.0",
+    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js#main",
     "ws": "^8.17.1",
+    "wwebjs-google-cloud-storage": "^1.0.9",
     "wwebjs-mongo": "^1.1.0",
     "zod": "^3.23.8"
   },
