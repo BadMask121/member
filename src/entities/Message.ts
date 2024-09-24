@@ -2,7 +2,7 @@ export interface Message {
   id: string;
   chatId: string;
   content: string;
-  sentBy: string | null;
+  sentBy: string;
   sentTo?: string | null;
   command?: string;
   mentionedIds?: string[];

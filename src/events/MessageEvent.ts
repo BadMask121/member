@@ -1,8 +1,19 @@
 import WAWebJS, { Client } from "whatsapp-web.js";
+import { ICommand } from "../commands/ICommand";
+import { IBotClientDao } from "../dao/IBotClientDao";
+import { Command } from "../entities/Command";
+import saveMessages from "../lib/save-messages";
 import { IMessageEvent } from "./IMessageEvent";
+import { getPhoneFromBotId } from "../lib/botClient";
+import { IChatDao } from "../dao/IChatDao";
 
 export default class MessageEvent implements IMessageEvent {
-  constructor(readonly client: Client) {}
+  constructor(
+    readonly client: Client,
+    readonly botClientDao: IBotClientDao,
+    readonly chatDao: IChatDao,
+    readonly commands: Record<Command, ICommand>
+  ) {}
 
   /**
    * resolve message events according to their needs
@@ -12,27 +23,55 @@ export default class MessageEvent implements IMessageEvent {
    * - check if message is from group invited to (compare with db)
    * - check if message starts with bot mentioned contact
    * - if it mentions bot user then trigger command actions e.g /summarize /initialize
+   * - add message to db
    *
    * bot message format standard should be as follows
    * "{mention} {command} {action}" e.g "@+233548409552 /summarize" or "@+233548409552 /summarize today"
    * @param param0
    */
   async resolve(message: WAWebJS.Message): Promise<void> {
-    const content = message.body || "";
-    const mentions = await message.getMentions();
-    const botMention = mentions.find((men) => men.isMe);
-    const botNumber = botMention?.number || "";
+    // ignore all messages from bot
+    if (!message.author || message.fromMe || !message.body) {
+      return;
+    }
 
-    // TODO check if message is from group invited to (compare with db)
+    const chatId = message.from;
 
-    // get structured format for the message e.g mention command action
-    const [, mention, command, action] = (content?.match(/(\S+)\s+(\S+)\s+(.+)/) || []) as string[];
+    try {
+      const content = message.body || "";
+      const botId = String(message.to);
+      const botNumber = getPhoneFromBotId(botId) || "";
+      const botClient = await this.botClientDao.getByPhone(botNumber);
+      const chat = await this.chatDao.get(chatId);
 
-    console.log(content);
-    // check if message starts with bot mentioned contact
-    if (mention?.startsWith(`@${botNumber}`)) {
-      console.log({ command, action }, "bot was mentioned");
-      message.reply("thanks");
+      if (!botClient || !chat) {
+        console.log("Message does not belong to any group");
+        return;
+      }
+
+      // get structured format for the message e.g mention command action
+      const [, mention, commandAction, action] = (content?.match(/(\S+)\s+(\S+)\s+(.+)/) ||
+        []) as string[];
+
+      // check if message starts with bot mentioned contact
+      if (mention?.startsWith(`@${botNumber}`)) {
+        const command = commandAction.replace("/", "") as Command;
+
+        console.log({ command, action }, "bot was mentioned");
+        await this.commands[command].resolve({
+          action,
+          botId,
+          chatId,
+        });
+
+        return;
+      }
+
+      await saveMessages({ id: chatId, botId }, [message]);
+      console.log("Bot saved new messages");
+    } catch (error) {
+      console.log(error);
+      await this.client.sendMessage(chatId, "Unable to process request, please try again");
     }
 
     // TODO send message to trigger command actions e.g /summarize /initialize

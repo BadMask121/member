@@ -2,22 +2,26 @@ import { PubSub } from "@google-cloud/pubsub";
 import { encode } from "cbor-x";
 import _get from "lodash.get";
 import WAWebJS, { Client } from "whatsapp-web.js";
+import { IBotClientDao } from "../dao/IBotClientDao";
 import { IChatDao } from "../dao/IChatDao";
+import { IMessageDao } from "../dao/IMessageDao";
 import { ChatDTO } from "../entities/Chat";
 import { GroupChat } from "../entities/GroupChat";
-import { QueueTopic } from "../entities/Queue";
 import { EventError } from "../errors/event";
-import { IGroupEvent } from "./IGroupChatEvent";
-import { IBotClientDao } from "../dao/IBotClientDao";
+import InitializeBot from "../handlers/initialize-bot";
 import { getPhoneFromBotId } from "../lib/botClient";
 import { firestore } from "../lib/dependencies";
-import InitializeBot from "../handlers/initialize-bot";
+import { IGroupEvent } from "./IGroupChatEvent";
+import { ICommand } from "../commands/ICommand";
+import { Command } from "../entities/Command";
 
 export default class GroupChatEvent implements IGroupEvent {
   constructor(
     readonly client: Client,
     readonly chatDao: IChatDao,
     readonly botClientDao: IBotClientDao,
+    readonly messageDao: IMessageDao,
+    readonly commands: Record<Command, ICommand>,
     readonly queue: PubSub
   ) {}
 
@@ -177,34 +181,10 @@ export default class GroupChatEvent implements IGroupEvent {
       this.botClientDao.transaction = undefined;
       this.chatDao.transaction = undefined;
 
-      console.log(result, "done");
-
-      // TODO: use for prod
-      // const [topic] = await this.queue.createTopic(QueueTopic.INIT_CHAT);
-
-      // Send a message to the topic
-      // over the network encoding with cbor algorigthm
-      const data = encode(result.chatDto);
-      // TODO: use for prod
-      // await topic.publishMessage({ data });
-
-      // TODO: for only testing
-      await InitializeBot({ data });
-
-      // // Creates a subscription on that new topic
-      // const [subscription] = await topic.createSubscription(QueueTopic.INIT_CHAT);
-
-      // // Receive callbacks for new messages on the subscription
-      // subscription.on("message", (message) => {
-      //   console.log("Received message:", message.data.toString());
-      //   process.exit(0);
-      // });
-
-      // // Receive callbacks for errors on the subscription
-      // subscription.on("error", (error) => {
-      //   console.error("Received error:", error);
-      //   process.exit(1);
-      // });
+      await this.commands[Command.Initialize].resolve({
+        botId,
+        chatId: result.chatDto.id,
+      });
     } catch (error) {
       console.log(error);
       await this.client.sendMessage(notification.chatId, "Member is failed to initialize");
@@ -224,6 +204,7 @@ export default class GroupChatEvent implements IGroupEvent {
       await firestore.runTransaction(async (tx) => {
         this.chatDao.transaction = tx;
         this.botClientDao.transaction = tx;
+        this.messageDao.transaction = tx;
 
         const botId = String(_get(notification.id, "participant"));
         const botPhone = getPhoneFromBotId(botId);
@@ -243,6 +224,7 @@ export default class GroupChatEvent implements IGroupEvent {
           this.chatDao.delete(notification.chatId),
           // increase invite count
           this.botClientDao.update(botClient.id, { inviteCount: (botClient.inviteCount || 1) - 1 }),
+          this.messageDao.delete(notification.chatId),
         ]);
 
         console.log("Member bot left group", {
@@ -253,6 +235,7 @@ export default class GroupChatEvent implements IGroupEvent {
 
       this.botClientDao.transaction = undefined;
       this.chatDao.transaction = undefined;
+      this.messageDao.transaction = undefined;
     } catch (error) {
       console.log(error);
     }

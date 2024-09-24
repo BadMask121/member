@@ -1,10 +1,9 @@
 import { FieldValue, Firestore, VectorQuery, VectorQuerySnapshot } from "@google-cloud/firestore";
-import isNil from "lodash.isnil";
-import omit from "lodash.omitby";
+import chunk from "lodash.chunk";
 import { Message, MessageDTO } from "../entities/Message";
 import { DaoError } from "../errors/dao";
-import { IMessageDao } from "./IMessageDao";
 import { DaoTable } from "./IDao";
+import { IMessageDao } from "./IMessageDao";
 
 export class MessageDao implements IMessageDao {
   transaction!: FirebaseFirestore.Transaction;
@@ -43,7 +42,7 @@ export class MessageDao implements IMessageDao {
 
   async getAllChatMessages(
     chatId: string,
-    filter?: { from?: string; to?: string }
+    filter?: { from: number; to: number }
   ): Promise<Message[]> {
     try {
       let docRef = this.db
@@ -88,38 +87,37 @@ export class MessageDao implements IMessageDao {
     }
   }
 
-  async create(chatDto: MessageDTO): Promise<Message> {
+  async add(messages: MessageDTO[]): Promise<void> {
     try {
-      const payload = omit<MessageDTO>(chatDto, isNil);
+      const MAX_WRITES_PER_BATCH = 500; /** https://cloud.google.com/firestore/quotas#writes_and_transactions */
 
-      let chatRef: FirebaseFirestore.DocumentReference<
-        FirebaseFirestore.DocumentData,
-        FirebaseFirestore.DocumentData
-      >;
+      const batches = chunk(messages, MAX_WRITES_PER_BATCH);
+      const commitBatchPromises: Promise<FirebaseFirestore.WriteResult[]>[] = [];
 
-      const embedding = FieldValue.vector(payload.embedding);
+      for (const batch of batches) {
+        const writeBatch = this.db.batch();
 
-      if (this.transaction) {
-        chatRef = this.db.collection(this.tableName).doc();
-        this.transaction.set(chatRef, {
-          ...payload,
-          embedding,
-        });
-      } else {
-        await this.db.collection(this.tableName).add({ ...payload, embedding });
+        for (const doc of batch) {
+          // only insert when we have no existing message id
+          const snapshot = await this.db.collection(this.tableName).where("id", "==", doc.id).get();
+          if (snapshot.empty) {
+            const snap = this.db.collection(this.tableName).doc();
+            const embedding = FieldValue.vector(doc.embedding);
+            writeBatch.create(snap, {
+              ...doc,
+              embedding,
+            });
+          }
+        }
+
+        commitBatchPromises.push(writeBatch.commit());
       }
 
-      return {
-        ...chatDto,
-        mentionedIds: chatDto.mentionedIds || [],
-        command: chatDto.command || "",
-        sentTo: chatDto.sentTo || null,
-      };
+      await Promise.all(commitBatchPromises);
     } catch (error) {
       throw new DaoError({
         name: "MessageDao",
         message: "Unable to create message",
-        chat: chatDto,
         error,
       });
     }
@@ -127,30 +125,19 @@ export class MessageDao implements IMessageDao {
 
   async delete(id: string): Promise<void> {
     try {
-      const data = (await this.db.collection(this.tableName).where("chatId", "==", id).get())
-        .docs[0];
+      const snapshot = await this.db.collection(this.tableName).where("chatId", "==", id).get();
+      const MAX_WRITES_PER_BATCH = 500; /** https://cloud.google.com/firestore/quotas#writes_and_transactions */
 
-      if (data) {
-        await this.db.collection(this.tableName).doc(data.id).delete();
-      }
-    } catch (error) {
-      throw new DaoError({
-        name: "MessageDao",
-        message: "Unable to delete chat",
-        id,
-        error,
+      const batches = chunk(snapshot.docs, MAX_WRITES_PER_BATCH);
+      const commitBatchPromises: Promise<FirebaseFirestore.WriteResult[]>[] = [];
+
+      batches.forEach((batch) => {
+        const writeBatch = this.db.batch();
+        batch.forEach((doc) => writeBatch.delete(doc.ref));
+        commitBatchPromises.push(writeBatch.commit());
       });
-    }
-  }
 
-  async softDelete(id: string): Promise<void> {
-    try {
-      const data = (await this.db.collection(this.tableName).where("id", "==", id).get()).docs[0];
-      if (data) {
-        await this.db.collection(this.tableName).doc(data.id).update({
-          isDeleted: false,
-        });
-      }
+      await Promise.all(commitBatchPromises);
     } catch (error) {
       throw new DaoError({
         name: "MessageDao",

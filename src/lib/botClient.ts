@@ -3,7 +3,14 @@ import { BotClient } from "../entities/BotClient";
 import GroupChatEvent from "../events/GroupChatEvent";
 import MessageEvent from "../events/MessageEvent";
 import WhatsappWebClient from "../services/WhatsappWebClient";
-import { botClientDao, chatDao, connectedClients, pubSub } from "./dependencies";
+import {
+  botClientDao,
+  chatDao,
+  commands,
+  connectedClients,
+  messageDao,
+  pubSub,
+} from "./dependencies";
 
 /**
  * create new bot clients
@@ -26,8 +33,15 @@ export async function createBotWebClient(botClient: BotClient): Promise<WAWebJS.
   const whatsApp = new WhatsappWebClient(botClient);
   await whatsApp.init();
 
-  const messageEvent = new MessageEvent(whatsApp.client);
-  const groupChatEvent = new GroupChatEvent(whatsApp.client, chatDao, botClientDao, pubSub);
+  const messageEvent = new MessageEvent(whatsApp.client, botClientDao, chatDao, commands);
+  const groupChatEvent = new GroupChatEvent(
+    whatsApp.client,
+    chatDao,
+    botClientDao,
+    messageDao,
+    commands,
+    pubSub
+  );
 
   whatsApp.client.on("message", (msg) => messageEvent.resolve(msg));
   whatsApp.client.on("group_join", (notification) => groupChatEvent.join(notification));

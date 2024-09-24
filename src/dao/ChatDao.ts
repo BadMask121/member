@@ -21,8 +21,8 @@ export class ChatDao implements IChatDao {
 
   async get(id: string, filter?: { adminId: string }): Promise<Chat | null> {
     try {
-      const docRef = this.db.collection(this.tableName).doc(id);
-      let chatSnap: FirebaseFirestore.DocumentSnapshot<
+      const docRef = this.db.collection(this.tableName).where("id", "==", id);
+      let chatSnap: FirebaseFirestore.QuerySnapshot<
         FirebaseFirestore.DocumentData,
         FirebaseFirestore.DocumentData
       >;
@@ -33,7 +33,11 @@ export class ChatDao implements IChatDao {
         chatSnap = await docRef.get();
       }
 
-      const chat = chatSnap.data() as Chat | null;
+      if (!chatSnap.docs.length) {
+        return null;
+      }
+
+      const chat = chatSnap.docs[0].data() as Chat | null;
       if (!chat) {
         return null;
       }
