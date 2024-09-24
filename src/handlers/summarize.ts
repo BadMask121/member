@@ -5,13 +5,10 @@ import { Encrypter } from "../lib/crypt";
 import { convertHumanDateTimeRange, formatDate } from "../lib/date";
 import { messageDao, openaiService } from "../lib/dependencies";
 import { MediaMessage, Message as AIMessage, MessageTypes } from "../entities/AI";
+import { CommandPayload } from "../commands/ICommand";
 
 interface RequestPayload {
-  data: {
-    action: string;
-    chatId: string;
-    botId: string;
-  };
+  data: CommandPayload;
 }
 
 /**
@@ -31,6 +28,10 @@ export default async function Summarize(req: RequestPayload): Promise<void> {
   const botPhone = getPhoneFromBotId(botId);
   const client = await getBotClient(String(botPhone));
   try {
+    if (!action) {
+      throw new Error("Action not specified");
+    }
+
     const dateRange = convertHumanDateTimeRange(action);
     if (!client) {
       throw new Error("No client found");
@@ -72,7 +73,8 @@ export default async function Summarize(req: RequestPayload): Promise<void> {
       {
         role: MessageTypes.Assistant,
         content: `
-          Can you provide a comprehensive summary of the given text? The summary should cover all the key points and main ideas presented in the original text,
+          You are a helpful assistant that summarizes content. You are helpful, creative, clever, and very friendly.
+          The summary should cover all the key points and main ideas presented in the original text,
           while also condensing the information into a concise and easy-to-understand format.
           Please ensure that the summary includes relevant details and examples that support the main ideas,
           while avoiding any unnecessary information or repetition. The length of the summary should be appropriate for the length and complexity of the original text,
@@ -81,7 +83,7 @@ export default async function Summarize(req: RequestPayload): Promise<void> {
       },
       {
         role: MessageTypes.User,
-        content: chatContext,
+        content: `Please summarize the following content: ${chatContext}`,
       },
     ];
 

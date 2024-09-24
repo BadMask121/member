@@ -6,6 +6,7 @@ export enum AIModel {
 }
 
 export enum MessageTypes {
+  System = "system",
   Assistant = "assistant",
   User = "user",
 }

@@ -51,7 +51,7 @@ export default class OpenAIService implements IAiService {
         messages: messages as OpenAI.ChatCompletionMessageParam[],
       });
 
-      return result.choices?.[0]?.message?.content;
+      return result.choices?.[0]?.message?.content?.trim() ?? "";
     } catch (e: unknown) {
       const error = e as HttpsError & { response: string };
       if (retries > 0) {

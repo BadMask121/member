@@ -118,6 +118,7 @@ export function convertHumanDateTimeRange(humanDateTimeRange: string): {
           break;
         case "today":
           from = to = getToday(now);
+          to += 86400;
           break;
         case "yesterday":
           from = to = getToday(now) - 86400; // 86400 seconds in a day

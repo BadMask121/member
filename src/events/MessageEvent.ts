@@ -45,7 +45,6 @@ export default class MessageEvent implements IMessageEvent {
       const chat = await this.chatDao.get(chatId);
 
       if (!botClient || !chat) {
-        console.log("Message does not belong to any group");
         return;
       }
 
@@ -73,7 +72,5 @@ export default class MessageEvent implements IMessageEvent {
       console.log(error);
       await this.client.sendMessage(chatId, "Unable to process request, please try again");
     }
-
-    // TODO send message to trigger command actions e.g /summarize /initialize
   }
 }
