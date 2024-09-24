@@ -1,4 +1,4 @@
-import { Firestore } from "@google-cloud/firestore";
+import { FieldValue, Firestore, VectorQuery, VectorQuerySnapshot } from "@google-cloud/firestore";
 import isNil from "lodash.isnil";
 import omit from "lodash.omitby";
 import { Message, MessageDTO } from "../entities/Message";
@@ -14,34 +14,28 @@ export class MessageDao implements IMessageDao {
     private readonly tableName: DaoTable
   ) {}
 
-  async get(id: string): Promise<Message | null> {
+  async similaritySearch(chatId: string, vectorValue: number[]): Promise<Message[]> {
     try {
-      const docRef = this.db.collection(this.tableName).doc(id);
-      let messageSnap: FirebaseFirestore.DocumentSnapshot<
-        FirebaseFirestore.DocumentData,
-        FirebaseFirestore.DocumentData
-      >;
+      const coll = this.db.collection(this.tableName);
+      const vectorQuery: VectorQuery = coll
+        .select(...["id", "chatId", "content", "sentBy", "sentTo", "mentionedIds", "createdAt"])
+        .where("chatId", "==", chatId)
+        .findNearest({
+          vectorField: "embedding",
+          queryVector: vectorValue,
+          limit: 10,
+          distanceMeasure: "COSINE",
+        });
 
-      if (this.transaction) {
-        messageSnap = await this.transaction.get(docRef);
-      } else {
-        messageSnap = await docRef.get();
-      }
+      const vectorQuerySnapshot: VectorQuerySnapshot = await vectorQuery.get();
 
-      const chat = messageSnap.data() as Message | null;
-      if (!chat) {
-        return null;
-      }
+      const messages = vectorQuerySnapshot.docs.map((doc) => doc.data()) as Message[];
 
-      return {
-        ...chat,
-        chatId: id,
-      };
+      return messages;
     } catch (error) {
       throw new DaoError({
-        name: "MessageDao",
+        name: "similaritySearch",
         message: "Unable to retrieve chat",
-        chatId: id,
         error,
       });
     }
@@ -54,6 +48,7 @@ export class MessageDao implements IMessageDao {
     try {
       let docRef = this.db
         .collection(this.tableName)
+        .select(...["id", "chatId", "content", "sentBy", "sentTo", "mentionedIds", "createdAt"])
         .where("chatId", "==", chatId)
         .orderBy("createdAt", "desc");
 
@@ -81,14 +76,7 @@ export class MessageDao implements IMessageDao {
         return [];
       }
 
-      const allMessages = chats.map((doc) => {
-        const chat = doc.data() as Message;
-        return {
-          ...chat,
-          id: doc.id,
-        };
-      });
-
+      const allMessages = chats.map((doc) => doc.data()) as Message[];
       return allMessages;
     } catch (error) {
       throw new DaoError({
@@ -109,11 +97,16 @@ export class MessageDao implements IMessageDao {
         FirebaseFirestore.DocumentData
       >;
 
+      const embedding = FieldValue.vector(payload.embedding);
+
       if (this.transaction) {
         chatRef = this.db.collection(this.tableName).doc();
-        this.transaction.set(chatRef, payload, { merge: true });
+        this.transaction.set(chatRef, {
+          ...payload,
+          embedding,
+        });
       } else {
-        await this.db.collection(this.tableName).add(payload);
+        await this.db.collection(this.tableName).add({ ...payload, embedding });
       }
 
       return {

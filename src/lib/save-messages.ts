@@ -3,7 +3,7 @@ import { ChatDTO } from "../entities/Chat";
 import { MessageDTO } from "../entities/Message";
 import { getBotClient, getPhoneFromBotId } from "./botClient";
 import { Encrypter } from "./crypt";
-import { firestore, messageDao } from "./dependencies";
+import { firestore, messageDao, openaiService } from "./dependencies";
 
 /**
  * Retrive and
@@ -34,27 +34,40 @@ export default async function saveMessages(
         return;
       }
 
-      const encryptedMessage = Encrypter.encrypt(
-        message.body,
-        String(process.env.MESSAGE_CRYPTO_KEY)
-      );
+      const content = message.body;
 
-      const payload: MessageDTO = {
-        id: message.id._serialized,
-        chatId: chatDto.id,
-        content: encryptedMessage,
-        createdAt: +new Date(message.timestamp),
-        sentBy: message.author,
-        sentTo: chatDto.botId,
-        mentionedIds: message.mentionedIds.map((mention) => mention._serialized),
-      };
+      /**
+       * chunk messages into smaller content, generate embeddings and store as messages
+       * to firestore db along with the embeddings
+       */
+      const embeddings = await openaiService.embeddings(content);
+
+      const messagesToSave = embeddings.map((embed) => {
+        const encryptedMessage = Encrypter.encrypt(
+          embed.content,
+          String(process.env.MESSAGE_CRYPTO_KEY)
+        );
+
+        const payload: MessageDTO = {
+          id: message.id._serialized,
+          chatId: chatDto.id,
+          content: encryptedMessage,
+          sentBy: String(message.author),
+          sentTo: chatDto.botId,
+          mentionedIds: message.mentionedIds.map((mention) => mention._serialized),
+          embedding: embed.embedding,
+          createdAt: +new Date(message.timestamp),
+        };
+
+        return messageDao.create(payload);
+      });
 
       // TODO: check if message has media then download media and upload to R2
       if (message.hasMedia) {
         console.log("image download not implemented");
       }
 
-      await messageDao.create(payload);
+      await Promise.all(messagesToSave);
     });
 
     await Promise.all(_messages);

@@ -188,7 +188,7 @@ export default class GroupChatEvent implements IGroupEvent {
       // TODO: use for prod
       // await topic.publishMessage({ data });
 
-      // TODO: REMOVE for only testing
+      // TODO: for only testing
       await InitializeBot({ data });
 
       // // Creates a subscription on that new topic
@@ -237,6 +237,7 @@ export default class GroupChatEvent implements IGroupEvent {
           });
         }
 
+        // TODO: delete messages in db and vector store
         await Promise.all([
           // delete group from db, this means bot is not longer in the group
           this.chatDao.delete(notification.chatId),

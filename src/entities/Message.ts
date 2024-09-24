@@ -2,9 +2,9 @@ export interface Message {
   id: string;
   chatId: string;
   content: string;
-  command: string;
   sentBy: string | null;
-  sentTo: string | null;
+  sentTo?: string | null;
+  command?: string;
   mentionedIds?: string[];
   createdAt: number;
 }
@@ -13,8 +13,9 @@ export interface MessageDTO {
   id: string;
   chatId: string;
   content: string;
-  command?: string;
   sentBy: string;
+  embedding: number[];
+  command?: string;
   sentTo?: string;
   mentionedIds?: string[];
   createdAt: number;

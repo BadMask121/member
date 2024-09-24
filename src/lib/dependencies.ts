@@ -7,6 +7,7 @@ import { BotClientDao } from "../dao/BotClientDao";
 import { ChatDao } from "../dao/ChatDao";
 import { DaoTable } from "../dao/IDao";
 import { MessageDao } from "../dao/MessageDao";
+import OpenAIService from "../services/OpenAI";
 
 let firestore!: Firestore;
 let pubSub!: PubSub;
@@ -31,6 +32,7 @@ if (!openai) {
 export const botClientDao = new BotClientDao(firestore, DaoTable.BotClient);
 export const chatDao = new ChatDao(firestore, DaoTable.Chat);
 export const messageDao = new MessageDao(firestore, DaoTable.Message);
+export const openaiService = new OpenAIService(openai);
 
 export const connectedClients = new Map();
 
