@@ -1,19 +1,17 @@
 import { PubSub } from "@google-cloud/pubsub";
-import { encode } from "cbor-x";
 import _get from "lodash.get";
 import WAWebJS, { Client } from "whatsapp-web.js";
+import { ICommand } from "../commands/ICommand";
 import { IBotClientDao } from "../dao/IBotClientDao";
 import { IChatDao } from "../dao/IChatDao";
 import { IMessageDao } from "../dao/IMessageDao";
 import { ChatDTO } from "../entities/Chat";
+import { Command } from "../entities/Command";
 import { GroupChat } from "../entities/GroupChat";
 import { EventError } from "../errors/event";
-import InitializeBot from "../handlers/initialize-bot";
 import { getPhoneFromBotId } from "../lib/botClient";
 import { firestore } from "../lib/dependencies";
 import { IGroupEvent } from "./IGroupChatEvent";
-import { ICommand } from "../commands/ICommand";
-import { Command } from "../entities/Command";
 
 export default class GroupChatEvent implements IGroupEvent {
   constructor(

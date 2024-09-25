@@ -4,6 +4,7 @@ import { getBotClient, getPhoneFromBotId } from "./botClient";
 import { Encrypter } from "./crypt";
 import { firestore, messageDao, openaiService } from "./dependencies";
 import chunk from "lodash.chunk";
+import { sanitizeMessage } from "./string";
 
 /**
  * Retrive and
@@ -34,7 +35,7 @@ export default async function saveMessages(
         return;
       }
 
-      const content = message.body;
+      const content = sanitizeMessage(message.body);
 
       /**
        * chunk messages into smaller content, generate embeddings and store as messages

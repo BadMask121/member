@@ -6,6 +6,8 @@ import saveMessages from "../lib/save-messages";
 import { IMessageEvent } from "./IMessageEvent";
 import { getPhoneFromBotId } from "../lib/botClient";
 import { IChatDao } from "../dao/IChatDao";
+import { extractCommandInfo } from "../lib/extractCommandInfo";
+import { sanitizeMessage } from "../lib/string";
 
 export default class MessageEvent implements IMessageEvent {
   constructor(
@@ -38,7 +40,7 @@ export default class MessageEvent implements IMessageEvent {
     const chatId = message.from;
 
     try {
-      const content = message.body || "";
+      const content = sanitizeMessage(message.body || "");
       const botId = String(message.to);
       const botNumber = getPhoneFromBotId(botId) || "";
       const botClient = await this.botClientDao.getByPhone(botNumber);
@@ -49,14 +51,19 @@ export default class MessageEvent implements IMessageEvent {
       }
 
       // get structured format for the message e.g mention command action
-      const [, mention, commandAction, action] = (content?.match(/(\S+)\s+(\S+)\s+(.+)/) ||
-        []) as string[];
+      const commandInfo = extractCommandInfo(content);
+      const { mention, command, action } = commandInfo || {};
+
+      if (!mention || !command) {
+        await this.commands[Command.Help].resolve({
+          botId,
+          chatId,
+        });
+        return;
+      }
 
       // check if message starts with bot mentioned contact
       if (mention?.startsWith(`@${botNumber}`)) {
-        const command = commandAction.replace("/", "") as Command;
-
-        console.log({ command, action }, "bot was mentioned");
         await this.commands[command].resolve({
           action,
           botId,

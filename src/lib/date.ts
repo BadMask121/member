@@ -121,13 +121,14 @@ export function convertHumanDateTimeRange(humanDateTimeRange: string): {
           to += 86400;
           break;
         case "yesterday":
-          from = to = getToday(now) - 86400; // 86400 seconds in a day
+          from = to = getToday(now) - 86400;
+          to += 86400;
           break;
         case "last month":
           {
             const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
             from = Math.floor(lastMonth.getTime() / 1000);
-            to = getToday(now) - 86400; // Last day of previous month
+            to = getToday(now); // Last day of previous month
           }
           break;
         default:

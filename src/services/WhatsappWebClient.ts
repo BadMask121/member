@@ -125,6 +125,6 @@ export default class WhatsappWebClient {
     console.log("destroying session...");
     // remove client from connection
     connectedClients.delete(this.botClient.phone);
-    // await this.client.destroy();
+    await this.client.destroy();
   }
 }

@@ -12,6 +12,7 @@ import { DaoTable } from "../dao/IDao";
 import { MessageDao } from "../dao/MessageDao";
 import { Command } from "../entities/Command";
 import OpenAIService from "../services/OpenAI";
+import { HelpCommand } from "../commands/Help";
 
 let firestore!: Firestore;
 let pubSub!: PubSub;
@@ -39,9 +40,11 @@ export const messageDao = new MessageDao(firestore, DaoTable.Message);
 export const openaiService = new OpenAIService(openai);
 
 export const commands: Record<Command, ICommand> = {
-  [Command.Summarize]: new SummarizeCommand(),
-  [Command.Initialize]: new InitializationCommand(),
+  [Command.Summarize]: new SummarizeCommand(pubSub),
+  [Command.Help]: new HelpCommand(),
+  [Command.Initialize]: new InitializationCommand(pubSub),
 };
+
 export const connectedClients = new Map();
 
 export { firestore, openai, pubSub };

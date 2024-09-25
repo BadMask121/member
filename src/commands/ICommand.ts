@@ -1,5 +1,5 @@
 export interface CommandPayload {
-  action?: string;
+  action?: string | null;
   chatId: string;
   botId: string;
 }

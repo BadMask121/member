@@ -3,7 +3,8 @@ substitutions:
   _RUNTIME: nodejs18
   _SERVICE_NAME: tappz
   _REGION: us-central1
-  _ENTRY_POINT: noteApp
+  _INIT_ENTRY_POINT: initializeBot
+  _SUMMARIZE_ENTRY_POINT: summarize
   _SECRET_PROJECT_ID: "49074897583"
   _REDIS_INSTANCE_ID: tappz-redis
   _REDIS_LOCATION: us-central1
@@ -26,7 +27,7 @@ steps:
       - '--image=gcr.io/$PROJECT_ID/tappz:latest'
       - '--region=${_REGION}'
       - '--platform=managed'
-      - '--set-env-vars=NODE_ENV=production,PROJECT_ID=$PROJECT_ID,SECRET_PROJECT_ID=${_SECRET_PROJECT_ID},REDIS_INSTANCE_ID=${_REDIS_INSTANCE_ID},REDIS_LOCATION=${_REDIS_LOCATION}'
+      - '--set-env-vars=NODE_ENV=production,PROJECT_ID=$PROJECT_ID,SECRET_PROJECT_ID=${_SECRET_PROJECT_ID}'
       - '--allow-unauthenticated'
       - '--vpc-connector=${_REDIS_CONNECTOR}'
 
@@ -45,13 +46,12 @@ steps:
       - '${_SERVICE_NAME}-api'
       - '--gen2'
       - '--runtime=${_RUNTIME}'
-      - '--trigger-http'
+      - '--trigger-topic INIT_CHAT'
       - '--allow-unauthenticated'
       - '--region=${_REGION}'
       - '--entry-point=${_ENTRY_POINT}'
       - '--set-env-vars=NODE_ENV=production,PROJECT_ID=$PROJECT_ID,SECRET_PROJECT_ID=${_SECRET_PROJECT_ID},REDIS_INSTANCE_ID=${_REDIS_INSTANCE_ID},REDIS_LOCATION=${_REDIS_LOCATION}'
       - '--memory=1Gb'
-      - '--vpc-connector=${_REDIS_CONNECTOR}'
       
 images:
   - 'gcr.io/$PROJECT_ID/tappz:latest'
