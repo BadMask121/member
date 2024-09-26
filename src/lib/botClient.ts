@@ -26,12 +26,13 @@ export async function createBotWebClient(botClient: BotClient): Promise<WAWebJS.
   const cachedClient = await getCachedClient(botClient.phone);
 
   if (cachedClient) {
+    console.log(cachedClient.eventNames, "connected cached client");
     return cachedClient;
   }
 
   /** create a new whatsapp instance for every bot client */
   const whatsApp = new WhatsappWebClient(botClient);
-  await whatsApp.init();
+  whatsApp.init();
 
   const messageEvent = new MessageEvent(whatsApp.client, botClientDao, chatDao, commands);
   const groupChatEvent = new GroupChatEvent(
@@ -49,6 +50,7 @@ export async function createBotWebClient(botClient: BotClient): Promise<WAWebJS.
 
   connectedClients.set(botClient.phone, whatsApp.client);
 
+  console.log(whatsApp.client.eventNames, "connected client");
   return whatsApp.client;
 }
 
@@ -66,8 +68,6 @@ export async function closeBotWebClient(botClient: BotClient): Promise<void> {
   /** create a new whatsapp instance for every bot client */
   const whatsApp = new WhatsappWebClient(botClient);
   await whatsApp.destroy();
-
-  connectedClients.delete(botClient.phone);
 }
 
 /**

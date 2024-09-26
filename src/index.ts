@@ -1,9 +1,9 @@
-import InitializeBot from "./handlers/initialize-bot";
-import Summarize from "./handlers/summarize";
-import { createCallApiV2 } from "./lib/createApi";
+export { default as summarize } from "./handlers/summarize";
+export { default as initChat } from "./handlers/initialize-bot";
 
-export const initializeBot = createCallApiV2(InitializeBot, {
-  timeoutSeconds: 520,
-});
-
-export const summarize = createCallApiV2(Summarize);
+// export const initializeBot = createCallApiV2(InitializeBot, {
+//   timeoutSeconds: 520,
+// });
+// export const summarize = createCallApiV2(Summarize, {
+//   memory: "1GiB",
+// });

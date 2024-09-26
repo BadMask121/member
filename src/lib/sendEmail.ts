@@ -27,8 +27,6 @@ export async function sendEmail({
     },
   };
 
-  console.log("mailer config", mailerConfig);
-
   // Create a transporter using SMTP
   const transporter = nodemailer.createTransport(mailerConfig);
 

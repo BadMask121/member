@@ -19,7 +19,9 @@ let pubSub!: PubSub;
 let openai!: OpenAI;
 
 if (!firestore) {
-  firestore = new Firestore();
+  firestore = new Firestore({
+    databaseId: process.env.DATABASE_ID,
+  });
 }
 
 if (!pubSub) {

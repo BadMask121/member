@@ -17,3 +17,4 @@ automerge-repo-data
 tsup.config.bundled*
 .wwebjs_auth
 .wwebjs_cache
+.env.prod

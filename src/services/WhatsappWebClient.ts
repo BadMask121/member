@@ -19,102 +19,86 @@ export default class WhatsappWebClient {
    * MUST BE CALLED FIRST
    */
   public async init(): Promise<void> {
-    // await mongoose.connect(String(process.env.MONGODB_URI)).catch((err) => this.logger(err));
+    try {
+      const { phone: botPhoneNumber, email } = this.botClient;
 
-    // const store = new MongoStore({ mongoose });
-    const { phone: botPhoneNumber, email } = this.botClient;
+      this.logger(`Initializing for bot client: ${botPhoneNumber}`);
 
-    this.logger(`Initializing for bot client: ${botPhoneNumber}`);
-
-    const options: WhatsAppWeb.ClientOptions = {
-      puppeteer: {
-        headless: true,
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-accelerated-2d-canvas",
-          "--no-first-run",
-          "--no-zygote",
-          "--single-process",
-          "--disable-gpu",
-        ],
-        defaultViewport: {
-          width: 800,
-          height: 600,
+      const options: WhatsAppWeb.ClientOptions = {
+        puppeteer: {
+          timeout: 90000,
+          ignoreHTTPSErrors: true,
+          headless: true,
+          args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usageå"],
         },
-      },
-    };
+        authStrategy: new RemoteAuth({
+          clientId: botPhoneNumber,
+          store: new WwebjsCloudStorage(botPhoneNumber, "wweb-storage", "member-121"),
+          backupSyncIntervalMs: 1000 * 60,
+        }),
+      };
 
-    // if (isProd) {
-    options.authStrategy = new RemoteAuth({
-      clientId: botPhoneNumber,
-      store: new WwebjsCloudStorage(botPhoneNumber, "wweb-storage", "member-adea8"),
-      backupSyncIntervalMs: 1000 * 60,
-    });
-    // }
-    // else {
-    //   options.authStrategy = new LocalAuth();
-    // }
+      const client = new Client(options);
 
-    const client = new Client(options);
+      client.initialize();
 
-    client.initialize();
-
-    if (!this.client) {
       this.client = client;
-    }
 
-    this.logger(`initialization complete for ${botPhoneNumber}, retriving Qr code for scanning...`);
+      this.logger(
+        `initialization complete for ${botPhoneNumber}, retriving Qr code for scanning...`
+      );
 
-    client.on("loading_screen", (percent, message) => {
-      this.logger("LOADING SCREEN", { percent, message });
-    });
-
-    client.on("authenticated", () => {
-      this.logger("AUTHENTICATED");
-    });
-
-    client.on("auth_failure", (msg) => {
-      // Fired if session restore was unsuccessful
-      this.logger("AUTHENTICATION FAILURE", { msg });
-    });
-
-    client.on("ready", async () => {
-      this.logger("READY");
-      const debugWWebVersion = await client.getWWebVersion();
-      this.logger(`WWebVersion = ${debugWWebVersion}`);
-
-      client!.pupPage?.on("pageerror", (err) => {
-        this.logger(`Page error: ${err.toString()}`);
+      client.on("loading_screen", (percent, message) => {
+        this.logger("LOADING SCREEN", { percent, message });
       });
-      client.pupPage?.on("error", (err) => {
-        this.logger(`Page error: ${err.toString()}`);
+
+      client.on("authenticated", () => {
+        this.logger("AUTHENTICATED");
       });
-    });
 
-    /**
-     * When the client received QR-Code
-     * send qr code image to bot client email for them to scan
-     */
-    client.once("qr", async (qr) => {
-      if (isProd) {
-        // send image to bot client admin email for scanning
-        this.logger("Sending message to admin for authentication...");
-        await sendQRCodeEmail(qr, email);
-      } else {
-        qrTerminal.generate(qr, { small: true });
-      }
-    });
+      client.on("auth_failure", (msg) => {
+        // Fired if session restore was unsuccessful
+        this.logger("AUTHENTICATION FAILURE", { msg });
+      });
 
-    // Enable graceful stop
-    ["SIGINT", "SIGTERM"].forEach((signal) => {
-      process.on(signal, async () => {
-        if (this.client) {
-          await this.destroy();
+      client.on("ready", async () => {
+        this.logger("READY");
+        const debugWWebVersion = await client.getWWebVersion();
+        this.logger(`WWebVersion = ${debugWWebVersion}`);
+
+        client!.pupPage?.on("pageerror", (err) => {
+          this.logger(`Page error: ${err.toString()}`);
+        });
+        client.pupPage?.on("error", (err) => {
+          this.logger(`Page error: ${err.toString()}`);
+        });
+      });
+
+      /**
+       * When the client received QR-Code
+       * send qr code image to bot client email for them to scan
+       */
+      client.once("qr", async (qr) => {
+        if (isProd) {
+          // send image to bot client admin email for scanning
+          this.logger("Sending message to admin for authentication...");
+          await sendQRCodeEmail(qr, email);
+        } else {
+          qrTerminal.generate(qr, { small: true });
         }
       });
-    });
+
+      // Enable graceful stop
+      ["SIGINT", "SIGTERM"].forEach((signal) => {
+        process.on(signal, async () => {
+          if (this.client) {
+            await this.destroy();
+          }
+        });
+      });
+    } catch (error) {
+      console.log({ error }, "Initialization error");
+    }
   }
 
   private logger(message: string, options?: Record<string, unknown>): void {
@@ -123,8 +107,8 @@ export default class WhatsappWebClient {
 
   async destroy(): Promise<void> {
     console.log("destroying session...");
+    await this.client?.destroy();
     // remove client from connection
     connectedClients.delete(this.botClient.phone);
-    await this.client.destroy();
   }
 }

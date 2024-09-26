@@ -54,16 +54,16 @@ export default class MessageEvent implements IMessageEvent {
       const commandInfo = extractCommandInfo(content);
       const { mention, command, action } = commandInfo || {};
 
-      if (!mention || !command) {
-        await this.commands[Command.Help].resolve({
-          botId,
-          chatId,
-        });
-        return;
-      }
-
       // check if message starts with bot mentioned contact
       if (mention?.startsWith(`@${botNumber}`)) {
+        if (!command) {
+          await this.commands[Command.Help].resolve({
+            botId,
+            chatId,
+          });
+          return;
+        }
+
         await this.commands[command].resolve({
           action,
           botId,

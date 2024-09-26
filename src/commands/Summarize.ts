@@ -1,10 +1,8 @@
 import { PubSub } from "@google-cloud/pubsub";
 import { encode } from "cbor-x";
-import { QueueTopic } from "../entities/Queue";
-import { CommandPayload, ICommand } from "./ICommand";
-import { getPhoneFromBotId, getBotClient } from "../lib/botClient";
-import { isProd } from "../lib/env";
 import Summarize from "../handlers/summarize";
+import { getBotClient, getPhoneFromBotId } from "../lib/botClient";
+import { CommandPayload, ICommand } from "./ICommand";
 
 export class SummarizeCommand implements ICommand {
   constructor(readonly queue: PubSub) {}
@@ -19,14 +17,14 @@ export class SummarizeCommand implements ICommand {
 
       const data = encode(payload);
 
-      if (isProd) {
-        const [topic] = await this.queue.createTopic(QueueTopic.SUMMARIZE_CHAT);
-        await topic.publishMessage({ data });
-      } else {
-        await Summarize({
-          data,
-        });
-      }
+      // if (isProd) {
+      //   const [topic] = await this.queue.createTopic(QueueTopic.SUMMARIZE_CHAT);
+      //   await topic.publishMessage({ data });
+      // } else {
+      await Summarize({
+        data,
+      });
+      // }
     } catch (error) {
       console.log(error);
     }

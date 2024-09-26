@@ -34,3 +34,5 @@ coverage
 .DS_Store
 .wwebjs_auth
 .wwebjs_cache
+.env
+.env.prod
