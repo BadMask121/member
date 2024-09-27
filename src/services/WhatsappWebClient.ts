@@ -35,17 +35,15 @@ export default class WhatsappWebClient {
           headless: true,
           args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
         },
-        // authStrategy: new RemoteAuth({
-        //   clientId: botPhoneNumber,
-        //   store: new WwebjsCloudStorage(
-        //     botPhoneNumber,
-        //     "wweb-storage",
-        //     isProd ? "member-121" : "member-test"
-        //   ),
-        //   backupSyncIntervalMs: 1000 * 60,
-        // }),
-
-        // authStrategy: new LocalAuth(),
+        authStrategy: new RemoteAuth({
+          clientId: botPhoneNumber,
+          store: new WwebjsCloudStorage(
+            botPhoneNumber,
+            "wweb-storage",
+            isProd ? "member-121" : "member-test"
+          ),
+          backupSyncIntervalMs: 1000 * 60,
+        }),
       };
 
       const client = new Client(options);

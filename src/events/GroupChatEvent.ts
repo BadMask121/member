@@ -169,7 +169,14 @@ export default class GroupChatEvent implements IGroupEvent {
         return;
       }
 
+      // once initialization is complete
       await this.commands[Command.Initialize].resolve({
+        botId,
+        chatId: result.chatDto.id,
+      });
+
+      // send help command
+      await this.commands[Command.Help].resolve({
         botId,
         chatId: result.chatDto.id,
       });
