@@ -4,7 +4,7 @@ import { IBotClientDao } from "../dao/IBotClientDao";
 import { Command } from "../entities/Command";
 import saveMessages from "../lib/save-messages";
 import { IMessageEvent } from "./IMessageEvent";
-import { getPhoneFromBotId } from "../lib/botClient";
+import { getPhoneFromId } from "../lib/botClient";
 import { IChatDao } from "../dao/IChatDao";
 import { extractCommandInfo } from "../lib/extractCommandInfo";
 import { sanitizeMessage } from "../lib/string";
@@ -40,9 +40,8 @@ export default class MessageEvent implements IMessageEvent {
     const chatId = message.from;
 
     try {
-      const content = sanitizeMessage(message.body || "");
       const botId = String(message.to);
-      const botNumber = getPhoneFromBotId(botId) || "";
+      const botNumber = getPhoneFromId(botId) || "";
       const botClient = await this.botClientDao.getByPhone(botNumber);
       const chat = await this.chatDao.get(chatId);
 
@@ -51,6 +50,7 @@ export default class MessageEvent implements IMessageEvent {
       }
 
       // get structured format for the message e.g mention command action
+      const content = sanitizeMessage(message.body || "");
       const commandInfo = extractCommandInfo(content);
       const { mention, command, action } = commandInfo || {};
 
@@ -74,7 +74,6 @@ export default class MessageEvent implements IMessageEvent {
       }
 
       await saveMessages({ id: chatId, botId }, [message]);
-      console.log("Bot saved new messages");
     } catch (error) {
       console.log(error);
       await this.client.sendMessage(chatId, "Unable to process request, please try again");

@@ -26,7 +26,6 @@ export async function createBotWebClient(botClient: BotClient): Promise<WAWebJS.
   const cachedClient = await getCachedClient(botClient.phone);
 
   if (cachedClient) {
-    console.log(cachedClient.eventNames, "connected cached client");
     return cachedClient;
   }
 
@@ -50,7 +49,6 @@ export async function createBotWebClient(botClient: BotClient): Promise<WAWebJS.
 
   connectedClients.set(botClient.phone, whatsApp.client);
 
-  console.log(whatsApp.client.eventNames, "connected client");
   return whatsApp.client;
 }
 
@@ -100,7 +98,11 @@ export async function getBotClient(botPhone: string): Promise<WAWebJS.Client | n
 export async function getCachedClient(botPhone: string): Promise<WAWebJS.Client | null> {
   // if we already have connection ignore
   if (connectedClients.has(botPhone)) {
-    console.log("found client for bot number...");
+    console.log("found client in cache for bot number...", {
+      botPhone,
+      connectedClients: connectedClients.keys(),
+    });
+
     const client = connectedClients.get(botPhone) as WAWebJS.Client;
     return client;
   }
@@ -108,7 +110,7 @@ export async function getCachedClient(botPhone: string): Promise<WAWebJS.Client 
   return null;
 }
 
-export function getPhoneFromBotId(botId: string): string | null {
+export function getPhoneFromId(botId: string): string | null {
   const [phone] = botId.split("@") || [];
   return phone || null;
 }

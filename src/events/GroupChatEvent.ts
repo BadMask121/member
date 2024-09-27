@@ -9,8 +9,8 @@ import { ChatDTO } from "../entities/Chat";
 import { Command } from "../entities/Command";
 import { GroupChat } from "../entities/GroupChat";
 import { EventError } from "../errors/event";
-import { getPhoneFromBotId } from "../lib/botClient";
-import { firestore } from "../lib/dependencies";
+import { getPhoneFromId } from "../lib/botClient";
+import { connectedClients, firestore } from "../lib/dependencies";
 import { IGroupEvent } from "./IGroupChatEvent";
 
 export default class GroupChatEvent implements IGroupEvent {
@@ -51,19 +51,21 @@ export default class GroupChatEvent implements IGroupEvent {
     - send message to queue to trigger initialization cloud function
    */
   async join(notification: WAWebJS.GroupNotification): Promise<void> {
-    await this.client.sendMessage(notification.chatId, "Member is initializing...");
     const botId = String(_get(notification.id, "participant"));
+    const connectedClientId = this.client?.info?.wid?._serialized;
 
-    if (!botId) {
-      throw new EventError({
-        name: "GroupChatEvent",
-        message: "Bot id must be valid",
-      });
+    if (!botId || !notification) {
+      return;
     }
 
-    const botPhone = getPhoneFromBotId(botId);
+    // ignore notification that does not belong to the connected client
+    if (botId !== connectedClientId) {
+      return;
+    }
 
     try {
+      const botPhone = getPhoneFromId(botId);
+
       const result = await firestore.runTransaction(async (tx) => {
         this.chatDao.transaction = tx;
         this.botClientDao.transaction = tx;
@@ -74,21 +76,21 @@ export default class GroupChatEvent implements IGroupEvent {
         if (!botClient) {
           throw new EventError({
             botId,
-            name: "GroupChatEvent",
-            message: "Bot client not connected",
-          });
-        }
-
-        if (!notification) {
-          throw new EventError({
-            botId,
             adminEmail,
             name: "GroupChatEvent",
-            message: "Invalid notification data",
+            message: "No client registered for this bot",
           });
         }
 
-        const registeredBotId = this.client?.info?.wid?._serialized;
+        // if invited notification is not our bot user
+        // then ignore notification
+        if (botPhone !== botClient.phone) {
+          return;
+        }
+
+        await this.client.sendMessage(notification.chatId, "Member is initializing...");
+
+        // const registeredBotId = this.client?.info?.wid?._serialized;
         const chat = (await notification.getChat()) as GroupChat;
         const adminId = notification.author;
         const adminInfo = chat.groupMetadata.participants.find(
@@ -100,18 +102,9 @@ export default class GroupChatEvent implements IGroupEvent {
           throw new EventError({
             botId,
             adminEmail,
+            adminInfo,
             name: "GroupChatEvent",
-            message: "Chat must be a group chat",
-          });
-        }
-
-        // check if invited user is our bot user and user who invited the bot is an admin
-        if (botId !== registeredBotId) {
-          throw new EventError({
-            botId,
-            adminEmail,
-            name: "GroupChatEvent",
-            message: "Only valid bot can be invited",
+            message: "Bot can only be initialized on group chats",
           });
         }
 
@@ -120,21 +113,13 @@ export default class GroupChatEvent implements IGroupEvent {
           throw new EventError({
             botId,
             adminEmail,
+            adminInfo,
             name: "GroupChatEvent",
             message: "Only admin user can invite bot",
           });
         }
 
-        if (!botClient) {
-          throw new EventError({
-            botId,
-            adminEmail,
-            name: "GroupChatEvent",
-            message: "Invalid bot info",
-          });
-        }
-
-        // Check if bot number belong to admin
+        // Check if registered admin number belong to registered admin notification
         if (botClient.adminPhone !== adminNumber) {
           throw new EventError({
             botId,
@@ -169,6 +154,7 @@ export default class GroupChatEvent implements IGroupEvent {
           this.chatDao.save(chatDto),
           // increase invite count
           this.botClientDao.update(botClient.id, {
+            botId,
             inviteCount: (botClient.inviteCount || 0) + 1,
           }),
         ]);
@@ -178,6 +164,10 @@ export default class GroupChatEvent implements IGroupEvent {
 
       this.botClientDao.transaction = undefined;
       this.chatDao.transaction = undefined;
+
+      if (!result) {
+        return;
+      }
 
       await this.commands[Command.Initialize].resolve({
         botId,
@@ -205,7 +195,7 @@ export default class GroupChatEvent implements IGroupEvent {
         this.messageDao.transaction = tx;
 
         const botId = String(_get(notification.id, "participant"));
-        const botPhone = getPhoneFromBotId(botId);
+        const botPhone = getPhoneFromId(botId);
         const botClient = await this.botClientDao.getByPhone(String(botPhone));
 
         if (!botClient) {

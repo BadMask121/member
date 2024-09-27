@@ -1,10 +1,11 @@
 import WAWebJS from "whatsapp-web.js";
 import { MessageDTO } from "../entities/Message";
-import { getBotClient, getPhoneFromBotId } from "./botClient";
+import { getBotClient, getPhoneFromId } from "./botClient";
 import { Encrypter } from "./crypt";
 import { firestore, messageDao, openaiService } from "./dependencies";
 import chunk from "lodash.chunk";
 import { sanitizeMessage } from "./string";
+import { extractCommandInfo } from "./extractCommandInfo";
 
 /**
  * Retrive and
@@ -19,8 +20,8 @@ export default async function saveMessages(
   chatDto: { id: string; botId: string },
   messages: WAWebJS.Message[]
 ): Promise<void> {
-  const phone = getPhoneFromBotId(chatDto.botId);
-  const client = await getBotClient(String(phone));
+  const botNumber = getPhoneFromId(chatDto.botId);
+  const client = await getBotClient(String(botNumber));
 
   if (!client) {
     throw new Error("No client found");
@@ -36,6 +37,12 @@ export default async function saveMessages(
       }
 
       const content = sanitizeMessage(message.body);
+      const { mention } = extractCommandInfo(content) || {};
+
+      // skip message containing bot operations
+      if (mention?.startsWith(`@${botNumber}`)) {
+        return;
+      }
 
       /**
        * chunk messages into smaller content, generate embeddings and store as messages
@@ -68,7 +75,7 @@ export default async function saveMessages(
         console.log("image download not implemented");
       }
 
-      // TODO: split into chunk of MAX 500 objects each when over 500 item
+      // split into chunk of MAX 500 objects each when over 500 item
       const chunkedMessages = chunk(messagesToSave, 500);
       await Promise.all(chunkedMessages.map((messages) => messageDao.add(messages)));
     });

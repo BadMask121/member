@@ -1,12 +1,10 @@
-import WAWebJS from "whatsapp-web.js";
-import { Message } from "../entities/Message";
-import { getBotClient, getPhoneFromBotId } from "../lib/botClient";
-import { Encrypter } from "../lib/crypt";
-import { convertHumanDateTimeRange, formatDate } from "../lib/date";
-import { messageDao, openaiService } from "../lib/dependencies";
-import { MediaMessage, Message as AIMessage, MessageTypes } from "../entities/AI";
-import { CommandPayload } from "../commands/ICommand";
 import { decode } from "cbor-x";
+import { CommandPayload } from "../commands/ICommand";
+import { Message as AIMessage, MediaMessage, MessageTypes } from "../entities/AI";
+import { getBotClient, getPhoneFromId } from "../lib/botClient";
+import { convertHumanDateTimeRange } from "../lib/date";
+import { messageDao, openaiService } from "../lib/dependencies";
+import { parseMessages } from "../lib/parse-messages";
 
 interface RequestPayload {
   data: Buffer;
@@ -28,9 +26,10 @@ export default async function Summarize(req: RequestPayload): Promise<void> {
   const payload = decode(data);
 
   const { action, botId, chatId } = payload as CommandPayload;
-  const botPhone = getPhoneFromBotId(botId);
+  const botPhone = getPhoneFromId(botId);
   const client = await getBotClient(String(botPhone));
   const chat = await client?.getChatById(chatId);
+
   try {
     if (!chat) {
       throw new Error("Invalid chat");
@@ -56,48 +55,36 @@ export default async function Summarize(req: RequestPayload): Promise<void> {
 
     const messages = await messageDao.getAllChatMessages(chatId, dateRange);
     if (!messages.length) {
-      await client.sendMessage(chatId, "no messages to summarize");
+      await client.sendMessage(
+        chatId,
+        "It seems there is no chat conversation provided to summarize."
+      );
       return;
     }
 
-    const chatContext = (
-      await Promise.all(
-        messages.map(async (msg) => {
-          const author = await client.getContactById(msg.sentBy);
-          let singleMessage: Record<string, string> = {};
-
-          if (singleMessage[msg.id]) {
-            singleMessage = { [msg.id]: singleMessage[msg.id] };
-          } else {
-            const chatIdentifier = `At ${formatDate(msg.createdAt)}: ${author.pushname || author?.id?.user} said `;
-            singleMessage = { [msg.id]: chatIdentifier };
-          }
-
-          return parseMessage(msg, client, singleMessage);
-        })
-      )
-    ).join("\n\n");
+    const chatContext = await parseMessages(messages, client);
 
     const prompt: (AIMessage | MediaMessage)[] = [
       {
         role: MessageTypes.Assistant,
         content: `
-You are a helpful AI assistant tasked with summarizing chat conversations. Your summary should:
+As an AI assistant, your task is to create clear and concise summaries of chat conversations,
+ensuring the summary does not exceed 65,536 characters, Your summaries should:
 
-1. Cover all key points and main ideas from the conversation.
-2. Condense information into a concise, easy-to-understand format.
+1. Capture the essence of the dialogue, highlighting key points and main ideas.
+2. Present information in a compact, easily digestible format.
 3. Include relevant details and examples that support main ideas.
 4. Avoid unnecessary information or repetition.
-5. Use paragraph form for clarity.
-6. Adjust length based on the original conversation's complexity.
-7. Provide a clear, accurate overview without omitting important information.
-8. Maintain the original conversation's tone where possible.
-9. Organize by topic if multiple subjects are discussed.
+5. Utilize paragraphs for improved readability and flow.
+6. Tailor the summary length to match the conversation's depth and complexity.
+7. Deliver a comprehensive overview without sacrificing crucial details.
+8. Reflect the original conversation's tone and style when appropriate.
+9. Group related topics together if multiple subjects are discussed.
+10. Summary must be short and conscise
 
-Aim to create a comprehensive yet concise summary that allows someone unfamiliar with
-the full conversation to grasp the main points, outcomes,
-and any conclusions reached. Be creative and friendly in your approach,
-ensuring the summary is both informative and engaging.`,
+Strive to craft summaries that allow readers unfamiliar with the full conversation to quickly grasp the main points, outcomes, and any conclusions reached.
+Inject creativity and warmth into your writing to ensure the summary is both informative and engaging.
+`,
         // content: `
         //   You are a helpful assistant that summarizes chat conversations. You are helpful, creative, clever, and very friendly.
         //   The summary should cover all the key points and main ideas presented in the chat conversations,
@@ -126,21 +113,4 @@ ensuring the summary is both informative and engaging.`,
       "It seem something wrong happened, please check your request and try again"
     );
   }
-}
-
-/**
- * parse message to context worthy content
- * add message sender name and date
- * @param message
- */
-async function parseMessage(
-  message: Message,
-  client: WAWebJS.Client,
-  singleMessage: { [key: string]: string }
-): Promise<string> {
-  const content = Encrypter.decrypt(message.content, String(process.env.MESSAGE_CRYPTO_KEY));
-
-  // eslint-disable-next-line no-param-reassign
-  singleMessage[message.id] += content;
-  return singleMessage[message.id];
 }

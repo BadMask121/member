@@ -1,10 +1,10 @@
 import { Command } from "../entities/Command";
-import { getBotClient, getPhoneFromBotId } from "../lib/botClient";
+import { getBotClient, getPhoneFromId } from "../lib/botClient";
 import { CommandPayload, ICommand } from "./ICommand";
 
 export class HelpCommand implements ICommand {
   async resolve(payload: CommandPayload): Promise<void> {
-    const botPhone = getPhoneFromBotId(payload.botId);
+    const botPhone = getPhoneFromId(payload.botId);
 
     if (!botPhone) {
       throw new Error("Invalid request");

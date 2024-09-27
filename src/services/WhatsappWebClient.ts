@@ -7,7 +7,7 @@ import { isProd } from "../lib/env";
 import { sendQRCodeEmail } from "../lib/sendQrCodeEmail";
 import { WwebjsCloudStorage } from "./WwebjsCloudStorage";
 
-const { RemoteAuth } = WhatsAppWeb;
+const { RemoteAuth, LocalAuth } = WhatsAppWeb;
 
 export default class WhatsappWebClient {
   public client!: Client;
@@ -23,19 +23,29 @@ export default class WhatsappWebClient {
       const { phone: botPhoneNumber, email } = this.botClient;
 
       this.logger(`Initializing for bot client: ${botPhoneNumber}`);
-
+      const wwebVersion = "2.3000.1016830464-alpha";
       const options: WhatsAppWeb.ClientOptions = {
+        webVersionCache: {
+          type: "remote",
+          remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/refs/heads/main/html/${wwebVersion}.html`,
+        },
         puppeteer: {
           timeout: 90000,
           ignoreHTTPSErrors: true,
           headless: true,
-          args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usageå"],
+          args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
         },
-        authStrategy: new RemoteAuth({
-          clientId: botPhoneNumber,
-          store: new WwebjsCloudStorage(botPhoneNumber, "wweb-storage", "member-121"),
-          backupSyncIntervalMs: 1000 * 60,
-        }),
+        // authStrategy: new RemoteAuth({
+        //   clientId: botPhoneNumber,
+        //   store: new WwebjsCloudStorage(
+        //     botPhoneNumber,
+        //     "wweb-storage",
+        //     isProd ? "member-121" : "member-test"
+        //   ),
+        //   backupSyncIntervalMs: 1000 * 60,
+        // }),
+
+        // authStrategy: new LocalAuth(),
       };
 
       const client = new Client(options);

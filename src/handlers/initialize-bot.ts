@@ -1,6 +1,6 @@
 import { decode } from "cbor-x";
 import { CommandPayload } from "../commands/ICommand";
-import { getBotClient, getPhoneFromBotId } from "../lib/botClient";
+import { getBotClient, getPhoneFromId } from "../lib/botClient";
 import saveMessages from "../lib/save-messages";
 
 interface RequestPayload {
@@ -15,7 +15,7 @@ interface RequestPayload {
 export default async function InitializeBot(req: RequestPayload): Promise<void> {
   const { data } = req;
   const chatDto = decode(data) as CommandPayload;
-  const phone = getPhoneFromBotId(chatDto.botId);
+  const phone = getPhoneFromId(chatDto.botId);
   const client = await getBotClient(String(phone));
   try {
     if (!client) {
@@ -25,6 +25,7 @@ export default async function InitializeBot(req: RequestPayload): Promise<void> 
     const chat = await client.getChatById(chatDto.chatId);
     const messages = await chat.fetchMessages({
       limit: 1000,
+      fromMe: false,
     });
 
     await saveMessages({ id: chatDto.chatId, botId: chatDto.botId }, messages);

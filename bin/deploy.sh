@@ -34,8 +34,6 @@ done < $env_path
 # Remove leading comma
 substitutions=${substitutions#,}
 
-echo $substitutions
-
 docker build -t gcr.io/$PROJECT_ID/$APP_NAME:latest .
 
 docker push gcr.io/$PROJECT_ID/$APP_NAME:latest

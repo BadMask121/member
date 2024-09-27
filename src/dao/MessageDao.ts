@@ -94,6 +94,16 @@ export class MessageDao implements IMessageDao {
       const batches = chunk(messages, MAX_WRITES_PER_BATCH);
       const commitBatchPromises: Promise<FirebaseFirestore.WriteResult[]>[] = [];
 
+      if (messages.length === 1) {
+        const doc = messages[0];
+        const embedding = FieldValue.vector(doc.embedding);
+        await this.db.collection(this.tableName).add({
+          ...doc,
+          embedding,
+        });
+        return;
+      }
+
       for (const batch of batches) {
         const writeBatch = this.db.batch();
 

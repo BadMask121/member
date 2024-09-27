@@ -50,3 +50,4 @@ export function sanitizeMessage(message: string): string {
     .replace(multipleSpacesRegex, " ")
     .trim();
 }
+

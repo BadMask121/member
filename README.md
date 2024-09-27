@@ -45,8 +45,9 @@ make sure to check `cloudbuild.yaml` for neccessary changes of credentials
 ## TODO
 
 [x] Implement inviting bot to group logic
-[ ] Implement storing of messages to db and vector db for initializer
-[ ] Implement storing of messages to db and vector db for new messages
-[ ] Implement message command handlers
-[ ] Implement message parser for AI commands
+[x] Implement storing of messages to db and vector db for initializer
+[x] Implement storing of messages to db and vector db for new messages
+[x] Implement message command handlers
+[x] Implement message parser for AI commands
+[ ] Implement proper error logger with sentry
 [ ] Implement authentication and session refresh
