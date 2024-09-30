@@ -1,3 +1,5 @@
+### Documentation not up to date
+
 ### Member
 
 A whatsapp group member chatbot to assistant group members access content from conversations with AI, summarize, ask questions and highlights about the group conversation. Keeping your the whole conversation in the same group chat.
