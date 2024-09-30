@@ -7,7 +7,7 @@ import { isProd } from "../lib/env";
 import { sendQRCodeEmail } from "../lib/sendQrCodeEmail";
 import { WwebjsCloudStorage } from "./WwebjsCloudStorage";
 
-const { RemoteAuth, LocalAuth } = WhatsAppWeb;
+const { RemoteAuth } = WhatsAppWeb;
 
 export default class WhatsappWebClient {
   public client!: Client;

@@ -49,5 +49,9 @@ make sure to check `cloudbuild.yaml` for neccessary changes of credentials
 [x] Implement storing of messages to db and vector db for new messages
 [x] Implement message command handlers
 [x] Implement message parser for AI commands
+[ ] implement frontend to create new bot
+[ ] implement ability to download media
+[ ] implment ability to ask ai about anything in the group
+[ ] implement admin panel for analytics
 [ ] Implement proper error logger with sentry
 [ ] Implement authentication and session refresh

@@ -56,7 +56,7 @@ else
     --scopes=https://www.googleapis.com/auth/cloud-platform \
     --tags=http-server,https-server \
     --image=projects/cos-cloud/global/images/cos-stable-113-18244-151-80 \
-    --boot-disk-size=10GB \
+    --boot-disk-size=80GB \
     --boot-disk-type=pd-balanced \
     --boot-disk-device-name=member-app \
     --container-image=gcr.io/$PROJECT_ID/$APP_NAME \

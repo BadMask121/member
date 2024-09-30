@@ -51,11 +51,6 @@ export class MessageDao implements IMessageDao {
         .where("chatId", "==", chatId)
         .orderBy("createdAt", "desc");
 
-      let messageSnap: FirebaseFirestore.QuerySnapshot<
-        FirebaseFirestore.DocumentData,
-        FirebaseFirestore.DocumentData
-      >;
-
       if (filter?.from) {
         docRef = docRef.where("createdAt", ">=", filter.from);
       }
@@ -64,11 +59,7 @@ export class MessageDao implements IMessageDao {
         docRef = docRef.where("createdAt", "<=", filter.to);
       }
 
-      if (this.transaction) {
-        messageSnap = await this.transaction.get(docRef);
-      } else {
-        messageSnap = await docRef.get();
-      }
+      const messageSnap = await docRef.get();
 
       const chats = messageSnap.docs;
       if (!chats.length) {

@@ -10,7 +10,7 @@ import { Command } from "../entities/Command";
 import { GroupChat } from "../entities/GroupChat";
 import { EventError } from "../errors/event";
 import { getPhoneFromId } from "../lib/botClient";
-import { connectedClients, firestore } from "../lib/dependencies";
+import { firestore } from "../lib/dependencies";
 import { IGroupEvent } from "./IGroupChatEvent";
 
 export default class GroupChatEvent implements IGroupEvent {
