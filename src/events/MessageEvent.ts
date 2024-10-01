@@ -34,6 +34,12 @@ export default class MessageEvent implements IMessageEvent {
   async resolve(message: WAWebJS.Message): Promise<void> {
     // ignore all messages from bot
     if (!message.author || message.fromMe || !message.body) {
+      console.log("Message not valid", {
+        author: message.author,
+        fromMe: message.fromMe,
+        bodyLength: message.body.length,
+        client: this.client?.info?.wid?._serialized,
+      });
       return;
     }
 
@@ -68,7 +74,17 @@ export default class MessageEvent implements IMessageEvent {
           action,
           botId,
           chatId,
+          adminEmail: botClient.email,
         });
+
+        // send help intructions once initialization command is complete
+        if (command === Command.Initialize) {
+          await this.commands[Command.Help].resolve({
+            botId,
+            chatId,
+          });
+          return;
+        }
 
         return;
       }

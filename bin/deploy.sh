@@ -4,7 +4,7 @@ env_path=".env.prod"
 APP_NAME="member-app"
 PROJECT_ID="member-121"
 INSTANCE_NAME="member-app-2"
-ZONE="us-central1-a"
+ZONE="us-central1-b"
 
 # Check if .env file exists
 if [ ! -f $env_path ]; then
@@ -48,7 +48,7 @@ else
     gcloud compute instances create-with-container $INSTANCE_NAME \
     --project=$PROJECT_ID \
     --zone=$ZONE \
-    --machine-type=e2-small \
+    --machine-type=e2-medium \
     --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
     --maintenance-policy=MIGRATE \
     --provisioning-model=STANDARD \
@@ -56,7 +56,7 @@ else
     --scopes=https://www.googleapis.com/auth/cloud-platform \
     --tags=http-server,https-server \
     --image=projects/cos-cloud/global/images/cos-stable-113-18244-151-80 \
-    --boot-disk-size=80GB \
+    --boot-disk-size=50GB \
     --boot-disk-type=pd-balanced \
     --boot-disk-device-name=member-app \
     --container-image=gcr.io/$PROJECT_ID/$APP_NAME \

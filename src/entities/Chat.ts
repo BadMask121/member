@@ -1,6 +1,12 @@
+export interface Member {
+  id: string;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+}
+
 export interface Chat {
   id: string;
-  members?: string[];
+  members?: Member[];
   adminId: string; // group authorId,
   botId: string; // phone@server
   isGroup?: boolean;
@@ -12,7 +18,7 @@ export interface ChatDTO {
   id: string;
   botId: string; // phone@server
   adminId: string; // group authorId,
-  members?: string[];
+  members?: Member[];
   isGroup?: boolean;
   isDeleted?: boolean;
   createdAt: number; // timestamp from the group notification object

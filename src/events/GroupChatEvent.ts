@@ -5,13 +5,14 @@ import { ICommand } from "../commands/ICommand";
 import { IBotClientDao } from "../dao/IBotClientDao";
 import { IChatDao } from "../dao/IChatDao";
 import { IMessageDao } from "../dao/IMessageDao";
-import { ChatDTO } from "../entities/Chat";
+import { ChatDTO, Member } from "../entities/Chat";
 import { Command } from "../entities/Command";
 import { GroupChat } from "../entities/GroupChat";
 import { EventError } from "../errors/event";
 import { getPhoneFromId } from "../lib/botClient";
 import { firestore } from "../lib/dependencies";
 import { IGroupEvent } from "./IGroupChatEvent";
+import { sendEmail } from "../lib/sendEmail";
 
 export default class GroupChatEvent implements IGroupEvent {
   constructor(
@@ -52,9 +53,16 @@ export default class GroupChatEvent implements IGroupEvent {
    */
   async join(notification: WAWebJS.GroupNotification): Promise<void> {
     const botId = String(_get(notification.id, "participant"));
+    const adminId = notification.author;
     const connectedClientId = this.client?.info?.wid?._serialized;
+    let adminEmail;
 
-    if (!botId || !notification) {
+    if (!botId || !notification || !adminId) {
+      console.log("Unable to initialize bot due to invalid parameters", {
+        botId,
+        notification,
+        adminId,
+      });
       return;
     }
 
@@ -71,7 +79,7 @@ export default class GroupChatEvent implements IGroupEvent {
         this.botClientDao.transaction = tx;
 
         const botClient = await this.botClientDao.getByPhone(String(botPhone));
-        const adminEmail = botClient?.email;
+        adminEmail = botClient?.email;
 
         if (!botClient) {
           throw new EventError({
@@ -88,15 +96,11 @@ export default class GroupChatEvent implements IGroupEvent {
           return;
         }
 
-        await this.client.sendMessage(notification.chatId, "Member is initializing...");
-
-        // const registeredBotId = this.client?.info?.wid?._serialized;
         const chat = (await notification.getChat()) as GroupChat;
-        const adminId = notification.author;
-        const adminInfo = chat.groupMetadata.participants.find(
-          (part) => part?.id?._serialized === adminId
-        );
-        const adminNumber = adminInfo?.id.user;
+        const adminInfo = chat?.participants?.find((part) => part?.id?._serialized === adminId);
+        const adminNumber = adminInfo?.id?.user;
+
+        console.log("[GROUPCHAT_EVENT]", chat?.participants, adminInfo, adminId);
 
         if (!chat.isGroup) {
           throw new EventError({
@@ -109,7 +113,7 @@ export default class GroupChatEvent implements IGroupEvent {
         }
 
         // Only admin should be able to invite bot
-        if (!adminInfo?.isAdmin || !adminInfo?.isSuperAdmin) {
+        if (!adminInfo?.isAdmin) {
           throw new EventError({
             botId,
             adminEmail,
@@ -139,18 +143,24 @@ export default class GroupChatEvent implements IGroupEvent {
           });
         }
 
+        const members: Member[] =
+          chat?.participants?.map?.((p) => ({
+            id: p.id._serialized,
+            isAdmin: p.isAdmin,
+            isSuperAdmin: p.isSuperAdmin,
+          })) || [];
+
         const chatDto: ChatDTO = {
           botId,
           id: notification.chatId,
           adminId,
           isGroup: true,
           isDeleted: false,
-          members: notification.recipientIds,
+          members,
           createdAt: +new Date(notification.timestamp),
         };
 
         await Promise.all([
-          // // TODO: add group members into members object array
           this.chatDao.save(chatDto),
           // increase invite count
           this.botClientDao.update(botClient.id, {
@@ -182,7 +192,14 @@ export default class GroupChatEvent implements IGroupEvent {
       });
     } catch (error) {
       console.log(error);
-      await this.client.sendMessage(notification.chatId, "Member is failed to initialize");
+
+      if (adminEmail) {
+        await sendEmail({
+          to: String(adminEmail),
+          text: "Member is failed to initialize",
+          subject: "initialization",
+        });
+      }
     }
   }
 
