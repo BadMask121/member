@@ -38,4 +38,5 @@ chmod + ./bin/deploy.sh
 [ ] Implement authentication and session refresh
 [ ] Implement Guardrails to replace sensitive/profane information in message before storing to db
 [ ] Implement Guardrails to prevent profane questions from being asked
+[ ] Implement queue and dlq for failed requests
 [ ]
