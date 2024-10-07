@@ -29,14 +29,13 @@ chmod + ./bin/deploy.sh
 
 ## TODO
 
-[x] Implement inviting bot to group logic
-[x] Implement storing of messages to db and vector db for initializer
-[x] Implement storing of messages to db and vector db for new messages
-[x] Implement message command handlers
-[x] Implement message parser for AI commands
-[ ] Implement proper error logger with sentry
-[ ] Implement authentication and session refresh
-[ ] Implement Guardrails to replace sensitive/profane information in message before storing to db
-[ ] Implement Guardrails to prevent profane questions from being asked
-[ ] Implement queue and dlq for failed requests
-[ ]
+[x] Implement inviting bot to group logic \
+[x] Implement storing of messages to db and vector db for initializer \
+[x] Implement storing of messages to db and vector db for new messages \
+[x] Implement message command handlers \
+[x] Implement message parser for AI commands \
+[ ] Implement proper error logger with sentry \
+[ ] Implement authentication and session refresh \
+[ ] Implement Guardrails to replace sensitive/profane information in message before storing to db \
+[ ] Implement Guardrails to prevent profane questions from being asked \
+[ ] Implement queue and dlq for failed requests \
