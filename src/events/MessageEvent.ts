@@ -32,6 +32,8 @@ export default class MessageEvent implements IMessageEvent {
    * @param param0
    */
   async resolve(message: WAWebJS.Message): Promise<void> {
+    const chatId = message.from;
+
     // ignore all messages from bot
     if (!message.author || message.fromMe || !message.body) {
       console.log("Message not valid", {
@@ -43,8 +45,6 @@ export default class MessageEvent implements IMessageEvent {
       return;
     }
 
-    const chatId = message.from;
-
     try {
       const botId = String(message.to);
       const botNumber = getPhoneFromId(botId) || "";
@@ -52,6 +52,7 @@ export default class MessageEvent implements IMessageEvent {
       const chat = await this.chatDao.get(chatId);
 
       if (!botClient || !chat) {
+        console.log("No chat found", { chatId, botClient, message });
         return;
       }
 

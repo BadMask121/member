@@ -68,6 +68,12 @@ export default class GroupChatEvent implements IGroupEvent {
 
     // ignore notification that does not belong to the connected client
     if (botId !== connectedClientId) {
+      console.log("No connected client found", {
+        botId,
+        notification,
+        adminId,
+        connectedClientId,
+      });
       return;
     }
 
@@ -98,13 +104,14 @@ export default class GroupChatEvent implements IGroupEvent {
 
         const chat = (await notification.getChat()) as GroupChat;
         const adminInfo = chat?.participants?.find((part) => part?.id?._serialized === adminId);
-        const adminNumber = adminInfo?.id?.user;
+        // const adminNumber = adminInfo?.id?.user;
 
         console.log("[GROUPCHAT_EVENT]", chat?.participants, adminInfo, adminId);
 
         if (!chat.isGroup) {
           throw new EventError({
             botId,
+            chatId: notification.chatId,
             adminEmail,
             adminInfo,
             name: "GroupChatEvent",
@@ -112,29 +119,34 @@ export default class GroupChatEvent implements IGroupEvent {
           });
         }
 
-        // Only admin should be able to invite bot
-        if (!adminInfo?.isAdmin) {
-          throw new EventError({
-            botId,
-            adminEmail,
-            adminInfo,
-            name: "GroupChatEvent",
-            message: "Only admin user can invite bot",
-          });
-        }
+        // // Only admin should be able to invite bot
+        // if (!adminInfo?.isAdmin) {
+        //   throw new EventError({
+        //     botId,
+        //     adminEmail,
+        //     adminInfo,
+        //     name: "GroupChatEvent",
+        //     message: "Only admin user can invite bot",
+        //   });
+        // }
 
         // Check if registered admin number belong to registered admin notification
-        if (botClient.adminPhone !== adminNumber) {
-          throw new EventError({
-            botId,
-            adminEmail,
-            name: "GroupChatEvent",
-            message: "Bot was not initiated by the right admin",
-          });
-        }
+        // if (botClient.adminPhone !== adminNumber) {
+        //   throw new EventError({
+        //     botId,
+        //     adminEmail,
+        //     name: "GroupChatEvent",
+        //     message: "Bot was not initiated by the right admin",
+        //   });
+        // }
+
+        const inviteCount = Number.isNaN(Number(botClient.inviteCount)) ? 0 : botClient.inviteCount;
+        const maxInviteCount = Number.isNaN(Number(botClient.maxInviteCount))
+          ? 0
+          : botClient.inviteCount;
 
         // limit how many group chat bot can be invited to
-        if (botClient.inviteCount >= 1) {
+        if (inviteCount >= maxInviteCount) {
           throw new EventError({
             botId,
             adminEmail,
@@ -172,9 +184,6 @@ export default class GroupChatEvent implements IGroupEvent {
         return { botClient, chatDto };
       });
 
-      this.botClientDao.transaction = undefined;
-      this.chatDao.transaction = undefined;
-
       if (!result) {
         return;
       }
@@ -200,6 +209,9 @@ export default class GroupChatEvent implements IGroupEvent {
           subject: "initialization",
         });
       }
+    } finally {
+      this.botClientDao.transaction = undefined;
+      this.chatDao.transaction = undefined;
     }
   }
 
@@ -244,12 +256,12 @@ export default class GroupChatEvent implements IGroupEvent {
           botClient,
         });
       });
-
+    } catch (error) {
+      console.log(error);
+    } finally {
       this.botClientDao.transaction = undefined;
       this.chatDao.transaction = undefined;
       this.messageDao.transaction = undefined;
-    } catch (error) {
-      console.log(error);
     }
   }
 }

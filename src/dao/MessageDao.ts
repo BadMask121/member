@@ -6,7 +6,7 @@ import { DaoTable } from "./IDao";
 import { IMessageDao } from "./IMessageDao";
 
 export class MessageDao implements IMessageDao {
-  transaction!: FirebaseFirestore.Transaction;
+  transaction!: FirebaseFirestore.Transaction | undefined;
 
   constructor(
     private readonly db: Firestore,

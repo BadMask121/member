@@ -12,7 +12,9 @@ export class ChatDao implements IChatDao {
   constructor(
     private readonly db: Firestore,
     private readonly tableName: DaoTable
-  ) {}
+  ) {
+    this.db.settings({ ignoreUndefinedProperties: true });
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   removeMember(_memberId: string): Promise<boolean> {

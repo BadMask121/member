@@ -28,6 +28,12 @@ export default async function InitializeBot(req: RequestPayload): Promise<void> 
       fromMe: false,
     });
 
+    console.log("Saving messages", {
+      messagesLeng: messages.length,
+      id: chatDto.chatId,
+      botId: chatDto.botId,
+    });
+
     await saveMessages({ id: chatDto.chatId, botId: chatDto.botId }, messages);
   } catch (error) {
     console.log(error);
