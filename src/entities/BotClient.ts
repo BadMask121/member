@@ -17,6 +17,10 @@ export interface BotClient {
    */
   inviteCount: number;
   /**
+   * Max Number of groups to be invited to
+   */
+  maxInviteCount: number;
+  /**
    * botId from whatsapp web
    */
   botId: string;

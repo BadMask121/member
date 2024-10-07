@@ -1,5 +1,5 @@
 export enum Command {
   Summarize = "summarize",
-  Initialize = "initialize",
+  Initialize = "init",
   Help = "help",
 }

@@ -21,6 +21,9 @@ export class HelpCommand implements ICommand {
 *_/${Command.Help}_*
   Bring up instruction manual
 
+*_/${Command.Initialize}_*
+  Begin initialization process to index the last 1000 messages
+
 *_/${Command.Summarize}_*
   Summarize group chat activities
   *Usage*

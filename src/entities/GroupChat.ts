@@ -41,4 +41,5 @@ export interface GroupChatMetadata {
   membershipApprovalRequests: string[];
   subgroupSuggestions: string[];
 }
+
 export type GroupChat = GC & { groupMetadata: GroupChatMetadata };

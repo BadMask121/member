@@ -24,7 +24,8 @@ README.MD
 .npmrc
 .eslintrc.js
 .env.example
-
+.wwebjs_auth
+.wwebjs_cache
 node_modules
 npm-debug.log
 *.pem

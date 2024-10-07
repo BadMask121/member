@@ -1,7 +1,7 @@
 import { PubSub } from "@google-cloud/pubsub";
-import { CommandPayload, ICommand } from "./ICommand";
-import InitializeBot from "../handlers/initialize-bot";
 import { encode } from "cbor-x";
+import InitializeBot from "../handlers/initialize-bot";
+import { CommandPayload, ICommand } from "./ICommand";
 
 export class InitializationCommand implements ICommand {
   constructor(readonly queue: PubSub) {}

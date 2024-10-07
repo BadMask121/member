@@ -81,16 +81,7 @@ export class BotClientDao implements IBotClientDao {
   async getByPhone(phoneNumber: string): Promise<BotClient | null> {
     try {
       const docRef = this.db.collection(this.tableName).where("phone", "==", phoneNumber);
-      let botClientSnap: FirebaseFirestore.QuerySnapshot<
-        FirebaseFirestore.DocumentData,
-        FirebaseFirestore.DocumentData
-      >;
-
-      if (this.transaction) {
-        botClientSnap = await this.transaction.get(docRef);
-      } else {
-        botClientSnap = await docRef.get();
-      }
+      const botClientSnap = await docRef.get();
 
       if (!botClientSnap.docs.length) {
         return null;
